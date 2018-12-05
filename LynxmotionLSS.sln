@@ -1,0 +1,54 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LssUnitTests", "examples\LssUnitTests\LssUnitTests.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Library", "Library", "{EE61270D-50CD-40A2-8164-5B76B9B2F672}"
+	ProjectSection(SolutionItems) = preProject
+		src\aggregate.h = src\aggregate.h
+		src\LynxmotionLSS-Config.h = src\LynxmotionLSS-Config.h
+		src\LynxmotionLSS.cpp = src\LynxmotionLSS.cpp
+		src\LynxmotionLSS.h = src\LynxmotionLSS.h
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LssSimpleWrite", "examples\LssSimpleWrite\LssSimpleWrite.vcxproj", "{5CF566C6-5AE0-4CE8-A6C8-7BE9B03E2E92}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LssSimpleRead", "examples\LssSimpleRead\LssSimpleRead.vcxproj", "{B7FE3E33-7BFD-4FB7-9EE8-C06240A95A53}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LssActionUpdate", "examples\LssActionUpdate\LssActionUpdate.vcxproj", "{03DADBEE-D65E-48CB-B46C-0729E2B4D392}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LssBusScan", "examples\LssBusScan\LssBusScan.vcxproj", "{4444FEB2-56E9-4A7E-BD26-DF870AC46B29}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|Win32.Build.0 = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|Win32.ActiveCfg = Release|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|Win32.Build.0 = Release|Win32
+		{5CF566C6-5AE0-4CE8-A6C8-7BE9B03E2E92}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5CF566C6-5AE0-4CE8-A6C8-7BE9B03E2E92}.Debug|Win32.Build.0 = Debug|Win32
+		{5CF566C6-5AE0-4CE8-A6C8-7BE9B03E2E92}.Release|Win32.ActiveCfg = Release|Win32
+		{5CF566C6-5AE0-4CE8-A6C8-7BE9B03E2E92}.Release|Win32.Build.0 = Release|Win32
+		{B7FE3E33-7BFD-4FB7-9EE8-C06240A95A53}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B7FE3E33-7BFD-4FB7-9EE8-C06240A95A53}.Debug|Win32.Build.0 = Debug|Win32
+		{B7FE3E33-7BFD-4FB7-9EE8-C06240A95A53}.Release|Win32.ActiveCfg = Release|Win32
+		{B7FE3E33-7BFD-4FB7-9EE8-C06240A95A53}.Release|Win32.Build.0 = Release|Win32
+		{03DADBEE-D65E-48CB-B46C-0729E2B4D392}.Debug|Win32.ActiveCfg = Debug|Win32
+		{03DADBEE-D65E-48CB-B46C-0729E2B4D392}.Debug|Win32.Build.0 = Debug|Win32
+		{03DADBEE-D65E-48CB-B46C-0729E2B4D392}.Release|Win32.ActiveCfg = Release|Win32
+		{03DADBEE-D65E-48CB-B46C-0729E2B4D392}.Release|Win32.Build.0 = Release|Win32
+		{4444FEB2-56E9-4A7E-BD26-DF870AC46B29}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4444FEB2-56E9-4A7E-BD26-DF870AC46B29}.Debug|Win32.Build.0 = Debug|Win32
+		{4444FEB2-56E9-4A7E-BD26-DF870AC46B29}.Release|Win32.ActiveCfg = Release|Win32
+		{4444FEB2-56E9-4A7E-BD26-DF870AC46B29}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

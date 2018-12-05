@@ -1,0 +1,37 @@
+
+LssInvalid	LITERAL1
+LssAction	LITERAL1
+LssQuery	LITERAL1
+LssConfig	LITERAL1
+LssCommandModes	LITERAL1
+LssDegrees	LITERAL1
+LssRPM	LITERAL1
+LssPulse	LITERAL1
+LssUnits	LITERAL1
+LssTimedMove	LITERAL1
+LssSpeed	LITERAL1
+LssModifiers	LITERAL1
+LssID	LITERAL1
+LssBaudRate	LITERAL1
+LssLimp	LITERAL1
+LssHaltAndHold	LITERAL1
+LssMove	LITERAL1
+LssPosition	LITERAL1
+LssTarget	LITERAL1
+LssWheelMode	LITERAL1
+LssMaxSpeed	LITERAL1
+LssAngularRange	LITERAL1
+LssAngularStiffness	LITERAL1
+LssOriginOffset	LITERAL1
+LssGyreDirection	LITERAL1
+LssLEDColor	LITERAL1
+LssCurrent	LITERAL1
+LssVoltage	LITERAL1
+LssTemperature	LITERAL1
+LssFirstPosition	LITERAL1
+LssCommandSet	LITERAL1
+LssAsyncCommandSet	LITERAL1
+
+Write	KEYWORD2
+AsyncRead	KEYWORD2
+AsyncReadAll	KEYWORD2
