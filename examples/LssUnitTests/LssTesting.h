@@ -121,8 +121,9 @@ class LssPhysicalRig {
 extern bool _neg_test;
 #define test_neg(test_func) { _neg_test=true; test_func;  _neg_test=false; }
 
-void test_report(String test, bool passed);
-void test_head(const char* header);
+void test_report(const __FlashStringHelper* result, bool passed);
+void test_report(String result, bool passed);
+void test_head(const __FlashStringHelper* header);
 void test_report_finish();
 
 void test_parse_command(const char* cmd, unsigned long parsed);

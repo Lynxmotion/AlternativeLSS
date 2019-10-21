@@ -139,7 +139,7 @@ bool test_phy_servos()
     test_async_phy_rig_allservos_query();
     test_async_phy_rig_allservos_position_target();
     
-    test_head("Physical Servo Stress Tests");
+    test_head(F("Physical Servo Stress Tests"));
     test_async_phy_rig_allservos_query_N10();
 #endif
     test_async_phy_rig_allservos_position_target_N10();

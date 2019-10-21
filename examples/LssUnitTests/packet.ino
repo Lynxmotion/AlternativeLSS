@@ -31,7 +31,7 @@ void test_packet_copy_constructor()
 {
   LynxPacket a(16, LssQuery|LssPosition|LssDegrees, 125);
   LynxPacket b(a);
-  test_report("test_packet_copy_constructor", a==b);
+  test_report(F("test_packet_copy_constructor"), a==b);
 }
 
 void test_packet_copy_assignment()
@@ -39,12 +39,12 @@ void test_packet_copy_assignment()
   LynxPacket a(16, LssQuery|LssPosition|LssDegrees, 125);
   LynxPacket b(5, LssTarget, 34);
   b = a; 
-  test_report("test_packet_copy_assignment", a==b);
+  test_report(F("test_packet_copy_assignment"), a==b);
 }
 
 void test_packet_serialization()
 {
-  test_head("serialize packets C-strings");
+  test_head(F("serialize packets C-strings"));
   test_serialize_packet("6QD1800", LynxPacket(6, LssQuery|LssPosition|LssDegrees, 1800));
   test_serialize_packet("16QD1800", LynxPacket(16, LssQuery|LssPosition|LssDegrees, 1800));
   test_serialize_packet("6QP3650", LynxPacket(6, LssQuery|LssPosition|LssPulse, 3650));
@@ -67,18 +67,18 @@ void test_packet_serialization()
 
 void test_packet_parsing()
 {
-  test_head("parse packets with servo ID and command");
+  test_head(F("parse packets with servo ID and command"));
   test_parse_packet("1L", LynxPacket(1, LssLimp));
   test_parse_packet("2Q", LynxPacket(2,LssQuery));
   test_parse_packet("24LED", LynxPacket(24,LssLEDColor));
 
-  test_head("parse packets with servo ID, command and values");
+  test_head(F("parse packets with servo ID, command and values"));
   test_parse_packet("2D905", LynxPacket(2,LssPosition|LssDegrees,905));
   test_parse_packet("2D-905", LynxPacket(2,LssPosition|LssDegrees,-905));
   test_parse_packet("24LED5", LynxPacket(24,LssLEDColor,5));
   test_parse_packet("02D-905", LynxPacket(2,LssPosition|LssDegrees,-905));
 
-  test_head("parsing packets with errors returns invalid");
+  test_head(F("parsing packets with errors returns invalid"));
   test_parse_packet("-2Q", LynxPacket(0,LssInvalid));
   test_parse_packet("2@Q", LynxPacket(0,LssInvalid));
   test_parse_packet("2.Q", LynxPacket(0,LssInvalid));
@@ -89,7 +89,7 @@ void test_packet_parsing()
 
 void test_packet_class()
 {
-  test_head("Packet class");
+  test_head(F("Packet class"));
   test_packet_copy_constructor();
   test_packet_copy_assignment();
   test_packet_parsing();

@@ -1,7 +1,7 @@
 
 #include "LssTesting.h"
 
-//void * operator new (size_t size, void * ptr) { return ptr; }
+void * operator new (size_t size, void * ptr) { return ptr; }
 
 CharStream::CharStream()
     : pread(buffer), pwrite(buffer) 
@@ -207,21 +207,34 @@ void LssPhysicalRig::update()
 long _passed=0, _failed=0;
 bool _neg_test = false;
 
+void test_report(const __FlashStringHelper* test, bool passed) {
+  if(_neg_test) passed = !passed;
+  Serial.print(F("   "));
+  Serial.print(passed ? " PASS ":"*FAIL*" );
+  Serial.print(F("   "));
+  Serial.println(test);
+  if(passed) _passed++; else _failed++;
+}
+
 void test_report(String test, bool passed) {
   if(_neg_test) passed = !passed;
-  Serial.print("   ");
+  Serial.print(F("   "));
   Serial.print(passed ? " PASS ":"*FAIL*" );
-  Serial.print("   ");
+  Serial.print(F("   "));
   Serial.println(test);
-  //for(int i=test.length(); i<25; i++)
-  //  Serial.print(' ');
   if(passed) _passed++; else _failed++;
 }
 
 void test_head(const char* header) {
   Serial.println();
   Serial.print(header);
-  Serial.println(":");
+  Serial.println(F(":"));
+}
+
+void test_head(const __FlashStringHelper* header) {
+  Serial.println();
+  Serial.print(header);
+  Serial.println(F(":"));
 }
 
 void test_report_finish() {

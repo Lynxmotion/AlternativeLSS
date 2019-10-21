@@ -3,7 +3,7 @@ void test_async_req_increments_txn()
 {
   LssTestRig rig;
   rig.ankle.ReadAsync(LssPosition);
-  test_report("test_async_req_increments_txn", rig.channel.txn_next==1);
+  test_report(F("test_async_req_increments_txn"), rig.channel.txn_next==1);
 }
 
 void test_async_only_token_holder_sends()
@@ -14,13 +14,13 @@ void test_async_only_token_holder_sends()
   rig.sim[id].position = 670;  // directly setting sim position of servo5
   rig.ankle.ReadAsync(LssPosition);
   rig.update();
-  test_report("test_async_only_token_holder_sends", rig.channel[id].position!=670);
+  test_report(F("test_async_only_token_holder_sends"), rig.channel[id].position!=670);
 }
 
 void test_async_servo_sends_when_holding_token()
 {
   LssTestRig rig;
-  String test("test_async_servo_sends_when_holding_token");
+  String test(F("test_async_servo_sends_when_holding_token"));
   bool passed = false;
   short id = rig.ankle.id;
   rig.channel.txn_next = 2;
@@ -65,7 +65,7 @@ void test_async_txn_increments_when_async_done()
       }
     }
   }
-  test_report("test_async_txn_increments_when_async_done", passed);
+  test_report(F("test_async_txn_increments_when_async_done"), passed);
 }
 
 void test_async_position()
@@ -75,7 +75,7 @@ void test_async_position()
   rig.sim[id].position = 670;  // directly setting sim position of servo5
   rig.ankle.ReadAsync(LssPosition);
   rig.update();
-  test_report("test_async_position", rig.ankle.position == 670);
+  test_report(F("test_async_position"), rig.ankle.position == 670);
 }
 
 void test_async_position_target()
@@ -86,13 +86,13 @@ void test_async_position_target()
   rig.sim[id].target = 150;  // directly setting sim position of servo5
   rig.ankle.ReadAsync(LssPosition|LssTarget);
   rig.update();
-  test_report("test_async_position_target", rig.ankle.position==670 && rig.ankle.target==150);
+  test_report(F("test_async_position_target"), rig.ankle.position==670 && rig.ankle.target==150);
 }
 
 void test_async_position_target_with_2_servos()
 {
   bool passed = false;
-  String test("test_async_position_target_with_2_servos");
+  String test(F("test_async_position_target_with_2_servos"));
   LssTestRig rig;
   short hip = rig.hip.id;
   short ankle = rig.ankle.id;
@@ -118,7 +118,7 @@ void test_async_position_target_with_2_servos()
 void test_async_position_target_with_2_servos_rev_order()
 {
   bool passed = false;
-  String test("test_async_position_target_with_2_servos_rev_order");
+  String test(F("test_async_position_target_with_2_servos_rev_order"));
   LssTestRig rig;
   short hip = rig.hip.id;
   short ankle = rig.ankle.id;
@@ -144,7 +144,7 @@ void test_async_position_target_with_2_servos_rev_order()
 void test_async_position_target_read_all_3servos()
 {
   bool passed = false;
-  String test("test_async_position_target_read_all_3servos");
+  String test(F("test_async_position_target_read_all_3servos"));
   LssTestRig rig;
   short hip = rig.hip.id;
   short ankle = rig.ankle.id;
@@ -176,7 +176,7 @@ void test_async_position_target_read_all_3servos()
 void test_async_multiple_read_loop()
 {
   bool passed = true;
-  String test("test_async_multiple_read_loop");
+  String test(F("test_async_multiple_read_loop"));
   LssTestRig rig;
   short hip = rig.hip.id;
   short ankle = rig.ankle.id;
@@ -218,7 +218,7 @@ void test_async_multiple_read_loop()
 
 void test_async()
 {
-  test_head("Asynchronous Reads");
+  test_head(F("Asynchronous Reads"));
   test_async_req_increments_txn();
   test_async_only_token_holder_sends();
   test_async_servo_sends_when_holding_token();

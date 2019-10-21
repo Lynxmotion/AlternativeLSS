@@ -35,7 +35,7 @@ void test_serialize_command(const char* pkt, LssCommands cmd)
 
 void test_command_parsing()
 {
-  test_head("parse commands using fast string Trie");
+  test_head(F("parse commands using fast string Trie"));
 
   // action commands
   test_parse_command("L", LssLimp);
@@ -95,7 +95,7 @@ void test_command_parsing()
   //test_parse_command("CFD", LssQuery|LssPowerUpPosition|LssDegrees);
 
   // test some commands with unparsed characters left over
-  test_head("parse commands that have unmatched characters using fast string Trie");
+  test_head(F("parse commands that have unmatched characters using fast string Trie"));
   test_neg( test_parse_command("PX", LssPosition|LssPulse) );
   test_neg( test_parse_command("QBy", LssQuery|LssBaudRate) );
   test_neg( test_parse_command("QLEDx", LssQuery|LssLEDColor) );
@@ -104,7 +104,7 @@ void test_command_parsing()
 
 void test_serialize_commands()
 {
-  test_head("generate command codes from bitmasks");
+  test_head(F("generate command codes from bitmasks"));
 
   // action commands
   test_serialize_command("L", LssLimp);

@@ -1,16 +1,23 @@
-#include <MemoryFree.h>
+// define to true if you installed the MemoryFree Arduino library 
+// and you want to get free mem information.
+// #define HAVE_MEMORYFREE
+
 #include "LssTesting.h"
 
+
+#ifdef HAVE_MEMORYFREE
+#include <MemoryFree.h>
+#endif
 
 /// Enable to include unit tests.
 /// Unit tests do not require physical devices, the unit tests use a test rig and simulated 
 /// hardware to respond to LssServo and LssChannel bus transactions.
-//#define UNIT_TESTS
+#define UNIT_TESTS
 
 /// Enable to include physical tests.
 /// If enabled, these tests will scan the bus for devices at the configured baud rate and
 /// then perform a series of validation and stress testing.
-#define PHYSICAL_SERIAL      Serial1
+//#define PHYSICAL_SERIAL      Serial
 #define PHYSICAL_BAUDRATE    250000
 
 /// Repeat the physical tests every X milliseconds
@@ -107,8 +114,10 @@ void loop() {
     Serial.print(F("   TT "));
     printAggregate(stats.transaction.completionTime);
 
+#ifdef HAVE_MEMORYFREE
     Serial.print(F("   MemFree "));
     Serial.println(freeMemory());
+#endif
 
     // rescan for physical devices
     test_physical_scan();
