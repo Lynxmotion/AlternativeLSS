@@ -19,18 +19,6 @@
 class LynxServo;
 
 
-typedef enum {
-  LssLedOff  = 0,
-  LssRed     = 1,
-  LssGreen   = 2,
-  LssBlue    = 3,
-  LssYellow  = 4,
-  LssCyan    = 5,
-  LssMagenta = 6,
-  LssWhite   = 7
-} LssColors;
-
-
 
 class MaskSet 
   // TODO: rename to AsyncTransaction

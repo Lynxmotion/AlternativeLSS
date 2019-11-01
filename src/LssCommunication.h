@@ -80,6 +80,18 @@ typedef unsigned long LssCommands;
       |LssConfigCommandSet )
 
 
+typedef enum {
+  LssLedOff  = 0,
+  LssRed     = 1,
+  LssGreen   = 2,
+  LssBlue    = 3,
+  LssYellow  = 4,
+  LssCyan    = 5,
+  LssMagenta = 6,
+  LssWhite   = 7
+} LssColors;
+
+
 class LynxPacket {
   public:
     short id;
@@ -100,6 +112,8 @@ class LynxPacket {
     bool parse(const char* pkt);
 
     char* serialize(char* out) const;
+
+	inline bool matches(LssCommands bits) const { return (command & bits) == bits; }
 
     static LssCommands parseCommand(const char*& pkt);
     
