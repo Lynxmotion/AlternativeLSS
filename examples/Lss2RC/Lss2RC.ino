@@ -3,42 +3,53 @@
 
 #include <Servo.h>
 
-// SharpIR sensor library by Giuseppe Masino
-// Available in Library Manager as SharpIR or at https://github.com/qub1750ul/Arduino_SharpIR.git
-#include <SharpIR.h>
+// Sensor modes
+// These sensors we know about and can perform the conversion to standard units
+typedef enum {
+  // no conversion, raw value
+  Analog,
+
+  // Sharp Infrared
+  GP2Y0A41SK0F,   // millimeters
+  GP2Y0A21YK0F,   // millimeters
+  GP2Y0A02YK0F,   // millimeters
+} SensorMode;
 
 
 typedef struct _LssDevice {
   short id;           // LSS bus ID
   bool inverted;      // invert servo angle, or invert analog reading
+  union {
+    short mode;       // optional device mode (sensor model, unused for servo)
+    short color;
+  };
 } LssDevice;
 
 typedef struct _Config {
   LssDevice servos[3];
   LssDevice sensors[3];
-  
-  short LedId;  // LSS ID for 2RC on-board RGB LED
+  LssDevice led;  // LSS ID for 2RC on-board RGB LED
 } Config;
 
 const Config default_config PROGMEM = {
   // Servos
   // by default we set the Lss bus ID to the pin label
   {
-    { 9, false },
-    { 10, false },
-    { 11, false }
+    { 9, false, 0 },
+    { 10, false, 0 },
+    { 11, false, 0 }
   },
 
   // Sensors
   // by default we set the Lss bus ID to the pin label
   {
-    { 3, false },
-    { 4, false },
-    { 5, false }
+    { 3, false, GP2Y0A21YK0F },
+    { 4, false, 0 },
+    { 5, false, 0 }
   },
 
   // RGB color LED
-  7
+  { 7, false, LssLedOff }
 };
 
 
@@ -47,13 +58,9 @@ const Config default_config PROGMEM = {
 Config config;
 
 
-
 // the 3 servo pins wired to D9, D10, and D11
 // on the 2RC board PCB there are 3 digital pins reserved for servos
 Servo servos[3];
-
-// optionally our analog inputs can be a SharpIR sensor
-SharpIR sharpIR(SharpIR::GP2Y0A21YK0F, A3);
 
 // the hardware pin for the 3 servos (DO NOT CHANGE)
 // these are hard wired pins of the Lss 2RC PCB. To change the LSS Bus ID of servos modify the default config above.
@@ -63,27 +70,91 @@ const short hw_pin_servos[] = { 9, 10, 11 };
 // these are hard wired pins of the Lss 2RC PCB. To change the LSS Bus ID of servos modify the default config above.
 const short hw_pin_sensors[] = { A3, A4, A5 };
 
+// the hardware pins for the LED
+const short hw_pin_led[] = { 3, 6, 5 };
 
 /* TODO:
  * [done] Implement broadcast ID #254 for all servos
  * [done] Assignable Servo and Analog IDs in code
- * Implement Gyre direction (inverts servo), so must convert to using struct for servo with config
- * Implement Limpness L, no parameter, disabled servo. To reenable send a position update.
+ * [done] Implement Gyre direction (inverts servo), so must convert to using struct for servo with config
+ * [done] Implement Limpness L, no parameter, disabled servo. To reenable send a position update.
  * [done] Fix Angle D in tenths of degree
- * Implement RGB LED control 
- * Read/write config to eeprom
+ * [done] Implement RGB LED control 
+ * [done] Implement sensor modes
+ * [done] Read/write config to eeprom, including LED color and Gyre direction
+ * Implement register setting of sensor modes (AR, QAR and CAR)
+ * Implement change of device ID (using QID and CID command, just ID not supported)
+ * Implement change of baud rate (QB and CB)
+ * Refactor the query/action parsing, its getting busy. Possibly break Q/C patterns into functions on LssDevice
  * Should be listening on SoftwareSerial TX=D16 + Tri=D14, and RX=D15
  * 
  * Brahim:
- *   Please update the LSS 2RC Protocol specification to use one of the 9, 10, 11 as ID example for servo, 3,4,5 as 
+ *   [1] Please update the LSS 2RC Protocol specification to use one of the 9, 10, 11 as ID example for servo, 3,4,5 as 
  *   analog and 7 as LED. I choose the servo and sensor bus IDs to match the labels on the PCB (easy for customer to 
  *   remember). LED could be anything, maybe we should use a high number like +253 or something?.
+ *   [2] I used position commands to read/write the analog sensors. Kind of makes the servo and sensor pins similar. I can change this to the requested 'A' command if needed.
+ *   [3] I used AR,QAR,CAR to set sensor mode. Sensor mode can do the conversion for some known sensors like the SharpIR. Default sensor mode reads raw.
+ *   [4] Gyre mode G,QG,CG can also set inversion on analog sensor values So 0 becomes 1024 and vice versa.
  */
 
+/*
+ * Output a RGB value to the onboard LED
+ */
+void led_output(short red, short green, short blue) {
+  digitalWrite(hw_pin_led[0], 255-red);
+  digitalWrite(hw_pin_led[1], 255-green);
+  digitalWrite(hw_pin_led[2], 255-blue);
+}
 
+/*
+ * Output a standard LSS color value
+ */
+void led_standard_output(short lssColor) {
+  switch(lssColor) {
+    case LssLedOff:  led_output(0  ,0,0); break;            /* 0 */
+    case LssRed:     led_output(255,0,0); break;            /* 1 */
+    case LssGreen:   led_output(0,255,0); break;            /* 2 */
+    case LssBlue:    led_output(0,0,255); break;            /* 3 */
+    case LssYellow:  led_output(255,255,0); break;          /* 4 */
+    case LssCyan:    led_output(0,255,255); break;          /* 5 */
+    case LssMagenta: led_output(255,0,255); break;          /* 6 */
+    default:         led_output(255,255,255); break;        /* white */
+  }
+}
+
+/*
+ * If input value is outside extents, clamp to the min or max value
+ */
+short clamp(short input, short min_value, short max_value) {
+  return (input < min_value)
+    ? min_value
+    : (input > max_value)
+      ? max_value
+      : input;
+}
+
+/*
+ * Convert a raw sensor value based on the sensor mode
+ */
+short sensor_conversion(short input, short mode, bool inverted) {
+  if(inverted)
+    input = 1024 - input;
+
+  switch(mode) {
+    case GP2Y0A41SK0F: return clamp(20760 / (input - 11), 30, 310);
+    case GP2Y0A21YK0F: return clamp(48000 / (input - 20), 90, 810);
+    case GP2Y0A02YK0F: return clamp(94620 / (input - 17), 190, 1510);
+    default: return input;  // no translation
+  }
+}
+
+/*
+ * Match an LSS bus ID to a device in a collection,
+ * returns -1 if no matching device
+ */
 short resolve_device(const LssDevice* arr, short arrN,  unsigned short id) {
   for(short i=0; i < arrN; i++) {
-    if(config.servos[i].id == id)
+    if(arr[i].id == id)
       return i;
   }
   return -1;  // no device found
@@ -120,23 +191,87 @@ void process_packet(LynxPacket p) {
     else if(p.command == (LssDegrees|LssPosition|LssQuery) && !p.hasValue) {
       p.set(servo.read() * 10);    // must return in tenths of a degree
     }
-  
-  } else if((n = resolve_device(config.sensors, COUNTOF(config.sensors), p.id)) >0) {
+
+    // gyre direction query
+    else if(p.matches(LssGyreDirection|LssQuery)) {
+      p.set(config.servos[n].inverted ? -1 : +1);
+    }
+
+    // set gyre direction
+    else if(p.matches(LssGyreDirection) && !p.matches(LssQuery)) {
+      if(p.value == -1)
+        config.servos[n].inverted = true;
+      else if(p.value == 1)
+        config.servos[n].inverted = false;
+      else
+        return; // invalid input, dont response
+    }
+
+    // Limp query
+    else if(p.command == (LssLimp|LssQuery)) {
+      // no value expected
+      p.set(servo.attached() ? 1 : 0);
+    }
+
+    // set Limp mode (disabled servo)
+    else if(p.command == LssLimp) {
+      servo.detach();
+    }
+
+  } else if((n = resolve_device(config.sensors, COUNTOF(config.sensors), p.id)) >=0) {
     int pin = hw_pin_sensors[n];
     
-    // read/write pins
+    // read/write to sensor pins
     if(p.command == (LssDegrees|LssPosition) && p.hasValue) {
       // send the command to the servo
       digitalWrite(pin, p.value);
     } 
 
-    // position query
+    // sensor query
     else if(p.command == (LssDegrees|LssPosition|LssQuery) && !p.hasValue) {
-      p.set(analogRead(pin));
+      short input = analogRead(pin);
+
+      // convert the input and set as output value
+      p.set(
+        sensor_conversion(
+          input,
+          config.sensors[n].mode,
+          config.sensors[n].inverted
+        )
+      );
       //p.set(pin * 3);
     }
-  } else if(p.id == config.LedId) {
-    // update the color LED
+
+    // gyre direction query
+    // todo: this can be refactored since we also do it above
+    else if(p.matches(LssGyreDirection|LssQuery)) {
+      p.set(config.sensors[n].inverted ? -1 : +1);
+    }
+
+    // set gyre direction
+    else if(p.matches(LssGyreDirection) && !p.matches(LssQuery)) {
+      if(p.value == -1)
+        config.sensors[n].inverted = true;
+      else if(p.value == 1)
+        config.sensors[n].inverted = false;
+      else
+        return; // invalid input, dont response
+    }
+
+  } else if(p.id == config.led.id) {
+    // LED query
+    if(p.matches(LssLEDColor|LssQuery)) {
+      p.set(config.led.color);
+    }
+
+    // set LED color
+    else if(p.matches(LssLEDColor)) {
+      if(!p.hasValue || p.value<0) return; // invalid value, no response
+      led_standard_output( config.led.color = p.value );
+
+      if(flash)
+        write_config(config.led, offsetof(Config, led));
+    }
     
   } else
     return; // not a known device, do not reply
@@ -152,29 +287,26 @@ void setup() {
   Serial.begin(115200);
 
   // start with default config
-  memset(&config, &default_config, sizeof(default_config));
-
-  // set the ADC resolution
-  //analogReadResolution(hw_adc_resolution)
-
-  // enable pullups
-  //pinMode(A3, INPUT_PULLUP);
-  //pinMode(A4, INPUT_PULLUP);
-  //pinMode(A5, INPUT_PULLUP);
+  // copies config from program memory
+  memcpy_P(&config, &default_config, sizeof(default_config));
 
   // Define pin as Input
   pinMode (A3, INPUT);
   pinMode (A4, INPUT);
   pinMode (A5, INPUT);
 
+  // configure LED pins as outputs
+  pinMode (hw_pin_led[0], OUTPUT);
+  pinMode (hw_pin_led[1], OUTPUT);
+  pinMode (hw_pin_led[2], OUTPUT);
+  led_standard_output(config.led.color);
+
   analogReference(DEFAULT);
 }
 
-unsigned long long next_update=0;
 
 char cmdbuffer[32];
 char* pcmd = cmdbuffer;
-
 LynxPacket pkt;
 
 void loop() {
@@ -203,19 +335,5 @@ void loop() {
       // add to cmd buffer
       *pcmd++ = (char)c;
     }
-  }
-
-  // if we reached the update timer, print data
-  if(millis() > next_update) {
-    next_update = millis() + 1000;
-    Serial.print("A[");
-    Serial.print(analogRead(A3));
-    Serial.print(", ");
-    Serial.print(analogRead(A4));
-    Serial.print(", ");
-    Serial.print(analogRead(A5));    
-    Serial.print(", IR:");
-    Serial.print(sharpIR.getDistance());
-    Serial.println("cm]");
   }
 }
