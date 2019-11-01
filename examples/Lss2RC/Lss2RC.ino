@@ -1,6 +1,7 @@
 
 #include <LssCommunication.h>
 
+#include <EEPROM.h>
 #include <Servo.h>
 
 // Sensor modes
@@ -72,6 +73,8 @@ const short hw_pin_sensors[] = { A3, A4, A5 };
 
 // the hardware pins for the LED
 const short hw_pin_led[] = { 3, 6, 5 };
+
+const int eeprom_config_start = 0x16;
 
 /* TODO:
  * [done] Implement broadcast ID #254 for all servos
@@ -148,6 +151,47 @@ short sensor_conversion(short input, short mode, bool inverted) {
   }
 }
 
+
+short config_present() {
+  char hdr[4];
+  EEPROM.get(eeprom_config_start, hdr);
+  return (hdr[0]=='2' && hdr[1]=='R' && hdr[2]=='C')
+    ? hdr[3]    // config version number in 4th byte
+    : 0;
+}
+
+void restore_config() {
+  // verify header
+  if(config_present()) {
+    // read the full config
+    EEPROM.get(eeprom_config_start+4, config);
+  } else {
+    // write the current config
+    char hdr[4] = {'2', 'R', 'C', '1'};
+    EEPROM.put(eeprom_config_start, hdr);
+    EEPROM.put(eeprom_config_start+4, config);
+  }
+}
+
+void write_config(const LssDevice& dev, int offset, int elnum=0) {
+  // ensure there is a valid EEPROM config
+  // there must be since we write one on startup
+  if(config_present()) {
+    EEPROM.put(eeprom_config_start + 4 + offset + (sizeof(LssDevice)*elnum), dev);
+    Serial.print("ID");
+    Serial.print(dev.id);
+    Serial.print(" @");
+    Serial.print(offset);
+    Serial.print("  [");
+    Serial.print(elnum);
+    Serial.print("] = ");
+    if(dev.inverted)
+      Serial.print("!");
+    Serial.println(dev.mode);
+  }
+}
+
+
 /*
  * Match an LSS bus ID to a device in a collection,
  * returns -1 if no matching device
@@ -166,6 +210,11 @@ void process_packet(LynxPacket p) {
   // todo: if we know its a servo command we can get the servo beforehand, or we can get sensor address, whatever
   // todo: we can also automate the response printing
   short n;
+  
+  // if flash write is requested
+  bool flash = p.command & LssConfig;
+
+
   if(p.id == 254) {
     // recursively select all servos
     for(short i = 0; i < COUNTOF(config.servos); i++) {
@@ -205,6 +254,9 @@ void process_packet(LynxPacket p) {
         config.servos[n].inverted = false;
       else
         return; // invalid input, dont response
+
+      if(flash)
+        write_config(config.servos[n], offsetof(Config, servos), n);
     }
 
     // Limp query
@@ -256,6 +308,9 @@ void process_packet(LynxPacket p) {
         config.sensors[n].inverted = false;
       else
         return; // invalid input, dont response
+
+      if(flash)
+        write_config(config.servos[n], offsetof(Config, servos), n);
     }
 
   } else if(p.id == config.led.id) {
@@ -289,6 +344,7 @@ void setup() {
   // start with default config
   // copies config from program memory
   memcpy_P(&config, &default_config, sizeof(default_config));
+  restore_config();   // will read from EEPROM, or write to it if it doesnt exist
 
   // Define pin as Input
   pinMode (A3, INPUT);
