@@ -54,6 +54,8 @@ typedef unsigned long LssCommands;
 #define  LssVoltage          BIT(24)
 #define  LssTemperature      BIT(25)
 #define  LssFirstPosition    BIT(26)
+#define  LssDefault          BIT(27)
+#define  LssConfirm          BIT(28)
 #define  LssCommandSet       ((0xffffffff & ~(LssCommandModes|LssUnits|LssModifiers)) | LssQuery)
 
 // commands that are part of servo configuration

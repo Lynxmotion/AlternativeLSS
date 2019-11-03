@@ -32,7 +32,15 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     case 'H': ACCEPT(LssHaltAndHold);
     case 'O': ACCEPT(LssOriginOffset);
     case 'P': ACCEPT(LssPosition|LssPulse);
-    case 'D': ACCEPT(LssPosition|LssDegrees);
+    case 'D': SWITCH(LssPosition|LssDegrees) {
+      case 'E': SWITCH(LssInvalid) {
+      case 'F': SWITCH(LssInvalid) {
+      case 'A': SWITCH(LssInvalid) {
+      case 'U': SWITCH(LssInvalid) {
+      case 'L': SWITCH(LssInvalid) {
+      case 'T': SWITCH(LssDefault) {
+      }}}}}}
+    }
     case 'A': SWITCH(LssInvalid) {
       case 'R': ACCEPT(LssAngularRange);
       case 'S': ACCEPT(LssAngularStiffness);
@@ -87,7 +95,14 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     }
 
     case 'C': SWITCH(LssInvalid) {
-      case 'O': ACCEPT(LssConfig|LssOriginOffset);
+      case 'O': SWITCH(LssConfig|LssOriginOffset) {
+        case 'N': SWITCH(LssInvalid) {
+        case 'F': SWITCH(LssInvalid) {
+        case 'I': SWITCH(LssInvalid) {
+        case 'R': SWITCH(LssInvalid) {
+        case 'M': SWITCH(LssConfirm) {
+        }}}}}
+      }
       case 'A': SWITCH(LssInvalid) {
         case 'R': ACCEPT(LssConfig|LssAngularRange);
         case 'S': ACCEPT(LssConfig|LssAngularStiffness);
@@ -190,6 +205,24 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
           break;
         case LssOriginOffset:
           *pout++ = 'O';
+          break;
+        case LssDefault:
+          *pout++ = 'D';
+          *pout++ = 'E';
+          *pout++ = 'F';
+          *pout++ = 'A';
+          *pout++ = 'U';
+          *pout++ = 'L';
+          *pout++ = 'T';
+          break;
+        case LssConfirm:
+          *pout++ = 'C';
+          *pout++ = 'O';
+          *pout++ = 'N';
+          *pout++ = 'F';
+          *pout++ = 'I';
+          *pout++ = 'R';
+          *pout++ = 'M';
           break;
         default:
           // cannot serialize, unknown command code
