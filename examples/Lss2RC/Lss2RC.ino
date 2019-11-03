@@ -3,6 +3,13 @@
 
 #include <EEPROM.h>
 #include <Servo.h>
+#include <SoftwareSerial.h>
+
+
+// if set, we'll also listen and respond on the USB serial to LSS messages.
+// we'll always respond on the software serial bus as it is dedicated to LSS communication.
+#define LSS_ON_ARDUINO_SERIAL
+
 
 // Sensor modes
 // These sensors we know about and can perform the conversion to standard units
@@ -74,7 +81,16 @@ const short hw_pin_sensors[] = { A3, A4, A5 };
 // the hardware pins for the LED
 const short hw_pin_led[] = { 3, 6, 5 };
 
+// the hardware pins of the LSS Software Serial port
+const short hw_pin_lss_rx = 15;
+const short hw_pin_lss_tx = 16;
+const short hw_pin_lss_tx_enable = 14;
+
+// the address of config within the EEPROM address space
 const int eeprom_config_start = 0x16;
+
+// if enabled, a CONFIRM command to LED ID will wipe config settings
+bool ready_for_defaults = false;
 
 /* TODO:
  * [done] Implement broadcast ID #254 for all servos
@@ -85,11 +101,12 @@ const int eeprom_config_start = 0x16;
  * [done] Implement RGB LED control 
  * [done] Implement sensor modes
  * [done] Read/write config to eeprom, including LED color and Gyre direction
- * Implement register setting of sensor modes (AR, QAR and CAR)
+ * [done] Should be listening on SoftwareSerial TX=D16 + Tri=D14, and RX=D15
+ * [done] Implement register setting of sensor modes (AR, QAR and CAR)
+ * [done] Implement DEFAULT and CONFIRM command to reset eeprom
  * Implement change of device ID (using QID and CID command, just ID not supported)
  * Implement change of baud rate (QB and CB)
  * Refactor the query/action parsing, its getting busy. Possibly break Q/C patterns into functions on LssDevice
- * Should be listening on SoftwareSerial TX=D16 + Tri=D14, and RX=D15
  * 
  * Brahim:
  *   [1] Please update the LSS 2RC Protocol specification to use one of the 9, 10, 11 as ID example for servo, 3,4,5 as 
@@ -99,6 +116,30 @@ const int eeprom_config_start = 0x16;
  *   [3] I used AR,QAR,CAR to set sensor mode. Sensor mode can do the conversion for some known sensors like the SharpIR. Default sensor mode reads raw.
  *   [4] Gyre mode G,QG,CG can also set inversion on analog sensor values So 0 becomes 1024 and vice versa.
  */
+
+typedef void (*tx_enable_function)(bool en);
+
+// This struct ties a serial bus to a processing buffer
+typedef struct _LssSerialBus {
+  // the serial bus we are processing
+  Stream* port;
+  tx_enable_function tx_enable;
+  
+  // buffer stores characters as they come in
+  char cmdbuffer[16];
+  char* pcmd;
+} LssSerialBus;
+
+
+/*
+ * LSS Bus
+ */
+void lss_tx_enable(bool en)
+{
+    digitalWrite(hw_pin_lss_tx_enable, en ? HIGH : LOW);
+}
+
+
 
 /*
  * Output a RGB value to the onboard LED
@@ -160,17 +201,20 @@ short config_present() {
     : 0;
 }
 
+void write_config() {
+  // write the current config
+  char hdr[4] = {'2', 'R', 'C', '1'};
+  EEPROM.put(eeprom_config_start, hdr);
+  EEPROM.put(eeprom_config_start+4, config);
+}
+
 void restore_config() {
   // verify header
   if(config_present()) {
     // read the full config
     EEPROM.get(eeprom_config_start+4, config);
-  } else {
-    // write the current config
-    char hdr[4] = {'2', 'R', 'C', '1'};
-    EEPROM.put(eeprom_config_start, hdr);
-    EEPROM.put(eeprom_config_start+4, config);
-  }
+  } else
+    write_config(); // first write
 }
 
 void write_config(const LssDevice& dev, int offset, int elnum=0) {
@@ -206,11 +250,13 @@ short resolve_device(const LssDevice* arr, short arrN,  unsigned short id) {
 
 #define COUNTOF(arr)  (sizeof(arr)/sizeof(arr[0]))
 
-void process_packet(LynxPacket p) {
+void process_packet(LssSerialBus& bus, LynxPacket p) {
   // todo: if we know its a servo command we can get the servo beforehand, or we can get sensor address, whatever
   // todo: we can also automate the response printing
   short n;
-  
+
+  bool query = p.command & LssQuery;
+
   // if flash write is requested
   bool flash = p.command & LssConfig;
 
@@ -219,7 +265,7 @@ void process_packet(LynxPacket p) {
     // recursively select all servos
     for(short i = 0; i < COUNTOF(config.servos); i++) {
       p.id = config.servos[i].id;
-      process_packet(p);
+      process_packet(bus, p);
     }
     return;
     
@@ -308,10 +354,18 @@ void process_packet(LynxPacket p) {
         config.sensors[n].inverted = false;
       else
         return; // invalid input, dont response
-
-      if(flash)
-        write_config(config.servos[n], offsetof(Config, servos), n);
     }
+
+    else if (p.matches(LssAngularRange)) {
+      if(query)
+        p.set(config.sensors[n].mode);
+      else if(p.hasValue) {
+        config.sensors[n].mode = p.value;
+      }
+    }
+
+    if(!query && flash)
+      write_config(config.sensors[n], offsetof(Config, sensors), n);
 
   } else if(p.id == config.led.id) {
     // LED query
@@ -327,19 +381,48 @@ void process_packet(LynxPacket p) {
       if(flash)
         write_config(config.led, offsetof(Config, led));
     }
+
+    else if(p.matches(LssDefault)) {
+      ready_for_defaults = true;
+    } else if(ready_for_defaults && p.matches(LssConfirm)) {
+      memcpy_P(&config, &default_config, sizeof(default_config));
+      write_config();
+    }
     
   } else
     return; // not a known device, do not reply
   
   // by default we print the response back
   if(p.id >0) {
-    Serial.print('*');
-    Serial.println(p.toString());
+    if(bus.tx_enable)
+      bus.tx_enable(true);
+    bus.port->print('*');
+    bus.port->println(p.toString());
+    if(bus.tx_enable)
+      bus.tx_enable(false);
   }
 }
 
+
+SoftwareSerial SerialLSS(hw_pin_lss_rx, hw_pin_lss_tx);
+LssSerialBus lssSerial;
+
+#ifdef LSS_ON_ARDUINO_SERIAL
+LssSerialBus arduinoSerial;
+#endif
+
 void setup() {
   Serial.begin(115200);
+
+#ifdef LSS_ON_ARDUINO_SERIAL
+  arduinoSerial.port = &Serial;
+  arduinoSerial.tx_enable = nullptr;    // no need to control TX line on arduino serial
+  arduinoSerial.pcmd = arduinoSerial.cmdbuffer;
+#endif
+
+  lssSerial.port = &SerialLSS;
+  lssSerial.tx_enable = lss_tx_enable;
+  lssSerial.pcmd = lssSerial.cmdbuffer;
 
   // start with default config
   // copies config from program memory
@@ -358,38 +441,46 @@ void setup() {
   led_standard_output(config.led.color);
 
   analogReference(DEFAULT);
+
+  // configure the TX enable tr-state buffer
+  pinMode (hw_pin_lss_tx_enable, OUTPUT);
+  lss_tx_enable(false);
 }
 
 
-char cmdbuffer[32];
-char* pcmd = cmdbuffer;
-LynxPacket pkt;
-
-void loop() {
-  while (Serial.available() > 0) {
+void serialbus_process(LssSerialBus& bus) {
+  while (bus.port->available() > 0) {
     // read the incoming byte
-    int c = Serial.read();
+    int c = bus.port->read();
 
     if(c == '\r') {
-      *pcmd = 0;  // append null
+      *bus.pcmd = 0;  // append null
 
       // todo: we can probably convert this to a state machine model
-      if(cmdbuffer[0] == '#') {
+      if(bus.cmdbuffer[0] == '#') {
         // parse the LSS command
-        if(pkt.parse(&cmdbuffer[1])) {
-          process_packet(pkt);
+        LynxPacket pkt;
+        if(pkt.parse(&bus.cmdbuffer[1])) {
+          process_packet(bus, pkt);
         }
       }
 
       // clear packet buffer
-      pcmd = cmdbuffer;
+      bus.pcmd = bus.cmdbuffer;
     } else if(c == '#') {
       // for now, we reset the buffer if we encounter a packet-start character
-      pcmd = cmdbuffer;
-      *pcmd++ = (char)c;
+      bus.pcmd = bus.cmdbuffer;
+      *bus.pcmd++ = (char)c;
     } else {
       // add to cmd buffer
-      *pcmd++ = (char)c;
+      *bus.pcmd++ = (char)c;
     }
   }
+}
+
+void loop() {
+  serialbus_process(lssSerial);
+#ifdef LSS_ON_ARDUINO_SERIAL
+  serialbus_process(arduinoSerial);
+#endif
 }
