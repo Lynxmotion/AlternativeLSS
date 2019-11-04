@@ -222,16 +222,6 @@ void write_config(const LssDevice& dev, int offset, int elnum=0) {
   // there must be since we write one on startup
   if(config_present()) {
     EEPROM.put(eeprom_config_start + 4 + offset + (sizeof(LssDevice)*elnum), dev);
-    Serial.print("ID");
-    Serial.print(dev.id);
-    Serial.print(" @");
-    Serial.print(offset);
-    Serial.print("  [");
-    Serial.print(elnum);
-    Serial.print("] = ");
-    if(dev.inverted)
-      Serial.print("!");
-    Serial.println(dev.mode);
   }
 }
 
