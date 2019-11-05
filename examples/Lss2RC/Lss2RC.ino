@@ -43,21 +43,21 @@ const Config default_config PROGMEM = {
   // Servos
   // by default we set the Lss bus ID to the pin label
   {
-    { 9, false, 0 },
-    { 10, false, 0 },
-    { 11, false, 0 }
+    { 209, false, 0 },
+    { 210, false, 0 },
+    { 211, false, 0 }
   },
 
   // Sensors
   // by default we set the Lss bus ID to the pin label
   {
-    { 3, false, GP2Y0A21YK0F },
-    { 4, false, 0 },
-    { 5, false, 0 }
+    { 203, false, GP2Y0A21YK0F },
+    { 204, false, 0 },
+    { 205, false, 0 }
   },
 
   // RGB color LED
-  { 7, false, LssLedOff }
+  { 207, false, LssLedOff }
 };
 
 
