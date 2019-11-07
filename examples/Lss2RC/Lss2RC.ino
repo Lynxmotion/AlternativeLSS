@@ -389,8 +389,10 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
       bus.tx_enable(true);
     bus.port->print('*');
     bus.port->println(p.toString());
-    if(bus.tx_enable)
+    if(bus.tx_enable) {
+      bus.port->flush();
       bus.tx_enable(false);
+    }
   }
 }
 
