@@ -1,10 +1,15 @@
 
 set(SOURCE_FILES
         LynxmotionLSS-Config.h
-        LssCommon.h
         aggregate.h
+        MaskSet.h
+        AsyncToken.h
+        LssCommon.h LssCommon.cpp
+        LssChannel.h
         LssCommunication.h LssCommunication.cpp
         LynxmotionLSS.h LynxmotionLSS.cpp
+        platform/LssChannel.h platform/LssChannel.cpp
+        platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
 )
 
 # we first add our intermediate object library

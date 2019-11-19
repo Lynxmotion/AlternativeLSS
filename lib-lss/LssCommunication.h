@@ -1,15 +1,8 @@
 
 #pragma once
 
-#if (ARDUINO >= 100)
- #include <Arduino.h>
-#else
- #include <WProgram.h>
- #include <pins_arduino.h>
-#endif
-#include <WString.h>
-
 #include "LynxmotionLSS-Config.h"
+#include "LssCommon.h"
 
 #if defined(LSS_STATS)
 #include "aggregate.h"

@@ -2,6 +2,7 @@
 #pragma once
 
 
+// Arduino Only
 #define INTERPACKET_DELAY   1
 
 // maximum amount of time we will wait for a response from a servo before considering it a timeout
@@ -27,7 +28,7 @@
 //#define LSS_LOG_PACKETS
 //#define LSS_LOG_SERVO_DISPATCH
 
-///\brief Generate a pulse on a pin when bus read errors occur.
+///\brief Generate a pulse on a pin when bus read errors occur. (Arduino Only)
 /// If defined and set to a GPIO pin, the library will toggle this pin anytime a read error has occured. This is
 /// great for tracing electrical errors using an oscilloscope. Hook the GPIO pin to the trigger input of your oscope.
 //#define LSS_OSCOPE_TRIGGER_PIN 4

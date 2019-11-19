@@ -125,8 +125,8 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     }
   }
   //OSCOPE_TRIGGER
-  Serial.print("INVCMD ");
-  Serial.println(keep_ptr);
+  //Serial.print("INVCMD ");
+  //Serial.println(keep_ptr);
   return LssInvalid;
 }
 
@@ -260,7 +260,8 @@ char* LynxPacket::serialize(char* out) const
 
   // use platform to convert value
   if(hasValue) {
-    if(NULL == itoa(value, out, 10))
+    // if(NULL == itoa(value, out, 10)
+    if (snprintf(out, 8, "%d", value) == -1)
       return NULL;
     while(*out) out++;  // skip to end
   } else
@@ -338,4 +339,9 @@ bad_read:
   LSS_LOGGING.println();
 #endif
   return false;
+}
+
+bool LynxPacket::operator==(const LynxPacket& rhs) const
+{
+    return id==rhs.id && command==rhs.command && hasValue==rhs.hasValue && (!hasValue || (value==rhs.value));
 }
