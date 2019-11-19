@@ -7,14 +7,14 @@
 #include <fcntl.h>
 #include <sys/signal.h>
 #include <sys/types.h>
+#include <sys/select.h>
+#include <pthread.h>
 
 #include <functional>
 
 #define BAUDRATE B115200
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
-#define FALSE 0
-#define TRUE 1
 
 #if 0
 #define IFLOG(x) x
@@ -24,18 +24,20 @@
 
 class posix_serial_private {
 public:
-    // open and configure the posix serial port
+    // file descriptor of serial port
     int fd;
+
+    // our port settings, and saved settings to restore when closing
     struct termios oldtio, newtio;
-    struct sigaction saio;           /* definition of signal action */
+
+    // processing loop variables
+    pthread_t loop;
+    ChannelState state; // current loop task/state
 
     inline posix_serial_private()
-        : fd(0)
+        : fd(0), state(ChannelStopped)
     {}
 };
-
-//void signal_handler_IO (int status);   /* definition of signal handler */
-int wait_flag=TRUE;                    /* TRUE while no signal received */
 
 
 LssPosixChannel::LssPosixChannel(const char* channel_name)
@@ -58,19 +60,7 @@ void LssPosixChannel::begin(const char* devname, int baudrate)
     prv->fd = open(devname, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (prv->fd <0) {
         perror(devname);
-        return;
-    }
-
-    /* install the signal handler before making the device asynchronous */
-    //priv->saio.sa_handler = std::bind(&LssPosixChannel::signal_handler_IO, this, std::placeholders::_1);
-    //priv->saio.sa_handler = [this](int status) -> void { wait_flag = FALSE; };
-    prv->saio.sa_handler = signal_handler_IO;
-    sigemptyset(&prv->saio.sa_mask);
-    prv->saio.sa_flags = 0;
-    prv->saio.sa_restorer = NULL;
-    if(sigaction(SIGIO,&prv->saio,NULL) <0) {
-        perror(devname);
-        return;
+        goto error;
     }
 
     /* allow the process to receive SIGIO */
@@ -90,7 +80,21 @@ void LssPosixChannel::begin(const char* devname, int baudrate)
     tcflush(prv->fd, TCIFLUSH);
     tcsetattr(prv->fd,TCSANOW,&prv->newtio);
 
+
+    // start the processing loop
+    prv->state = ChannelStarting;
+    if(pthread_create( &prv->loop, NULL, s_run, (void*) this) !=0) {
+        // todo: should probably print some kind of error here
+        printf("failed to start serial processing thread\n");
+        goto error;
+    }
+
     priv = prv;
+    return;
+error:
+    if(prv->fd >0)
+        close(prv->fd);
+    delete prv;
 }
 
 void LssPosixChannel::free() {
@@ -106,14 +110,52 @@ void LssPosixChannel::free() {
     }
 }
 
-void LssPosixChannel::update()
+void* LssPosixChannel::s_run(void* inst) {
+    return ((LssPosixChannel*)inst)->run();
+}
+
+void* LssPosixChannel::run()
 {
-    if(priv == nullptr) return;
+    if(priv == nullptr) return nullptr;
+    priv->state = ChannelIdle;
+
+    fd_set         input;
+    struct timeval timeout;
+    int errors = 0;
+    int consecutive_errors = 0;
+
+    /* Initialize the input set */
+    FD_ZERO(&input);
+    FD_SET(priv->fd, &input);
+
+    /* Initialize the timeout structure */
+    timeout.tv_sec  = 1;
+    timeout.tv_usec = 0;
 
     /* after receiving SIGIO, wait_flag = FALSE, input is available
        and can be read */
-    if (wait_flag==FALSE) {
-        wait_flag = TRUE;      /* wait for new input */
+    while (priv->state >= ChannelIdle && consecutive_errors < 15) {
+        priv->state = ChannelIdle;
+
+        /* Do the select */
+        int n = select(priv->fd+1, &input, NULL, NULL, &timeout);
+
+/* See if there was an error */
+        if (n < 0) {
+            perror("select failed");
+            errors++;
+            consecutive_errors++;
+        } else if (n == 0) {
+            puts("+to");
+        } else {
+            // We have input
+            if (!FD_ISSET(priv->fd, &input))
+                continue;   // go back to loop begin, but we could call process() here
+        }
+
+        // process data, read from serial
+        priv->state = ChannelProcessing;
+
         IFLOG(if(pbuffer > buffer)  printf("[+= %s]\n", buffer));
         int bytes_read = read(priv->fd, pbuffer, sizeof(buffer) - (pbuffer - buffer));
         char *pb = buffer;
@@ -133,6 +175,7 @@ void LssPosixChannel::update()
                 for(int i=0; i<count; i++) {
                     if(servos[i]->id == packet.id) {
                         servos[i]->dispatch(packet);
+                        consecutive_errors = 0;
                         break;
                     }
                 }
@@ -153,6 +196,13 @@ void LssPosixChannel::update()
                 pbuffer = buffer;
         }
     }
+
+    priv->state = ChannelStopped;
+    return priv;
+}
+
+void LssPosixChannel::update() {
+    // now in update we just check for notifications we need to process on the main thread
 }
 
 void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
@@ -160,13 +210,3 @@ void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
     write(priv->fd, pkt_bytes, count);
 }
 
-
-/***************************************************************************
-* signal handler. sets wait_flag to FALSE, to indicate above loop that     *
-* characters have been received.                                           *
-***************************************************************************/
-
-void LssPosixChannel::signal_handler_IO(int status)
-{
-    wait_flag = FALSE;
-}

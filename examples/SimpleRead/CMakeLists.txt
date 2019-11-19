@@ -9,7 +9,7 @@ add_dependencies(lss-simpleread lss-static)
 message(STATUS "lsss at ${LSS_LIBRARY_DIR}")
 include_directories(${LSS_INCLUDE_DIR})
 link_directories(${LSS_LIBRARY_DIR})
-target_link_libraries(lss-simpleread lss-static)
+target_link_libraries(lss-simpleread lss-static pthread)
 
 # set compilation properties on the object library
 set_property(TARGET lss-objlib PROPERTY POSITION_INDEPENDENT_CODE 1)

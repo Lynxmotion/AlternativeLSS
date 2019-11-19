@@ -4,6 +4,15 @@
 
 class posix_serial_private;
 
+enum ChannelState {
+    ChannelStopped,
+    ChannelError,
+    ChannelStarting,
+    ChannelStopping,
+    ChannelIdle,
+    ChannelProcessing
+};
+
 class LssPosixChannel : public LssChannelBase {
 public: // todo: should be private
     char buffer[256];
@@ -23,6 +32,6 @@ public:
     virtual void transmit(const char* pkt_bytes, int count);
 
 private:
-    // todo: must convert signal_handler_IO to instance method and trampoline
-    static void signal_handler_IO(int status);
+    void* run();
+    static void* s_run(void*);
 };
