@@ -15,10 +15,14 @@ enum ChannelState {
 
 class LssPosixChannel : public LssChannelBase {
 public: // todo: should be private
+    const char* devname;
+    int baudrate;
     char buffer[256];
     char* pbuffer;
 
     posix_serial_private* priv;
+
+    unsigned long bytes_sent, bytes_received;
 
 public:
     LssPosixChannel(const char* channel_name=nullptr);
@@ -34,4 +38,6 @@ public:
 private:
     void* run();
     static void* s_run(void*);
+
+    void open();
 };

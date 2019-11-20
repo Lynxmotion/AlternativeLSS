@@ -6,8 +6,15 @@ LssChannelBase::LssChannelBase(const char* channel_name)
         : name(channel_name), timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(unresponsive_request_limit), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
           size(0), count(0), servos(NULL),
           txn_current(1), txn_next(1)
-{}
+{
+    pthread_mutex_init(&promise_lock, NULL);
+}
 
+LssChannelBase::~LssChannelBase()
+{
+    free();
+    pthread_mutex_destroy(&promise_lock);
+}
 LssChannelBase& LssChannelBase::add(LynxServo& servo)
 {
     if(count >= size)
@@ -50,6 +57,7 @@ const LynxServo& LssChannelBase::operator[](short servoId) const {
     while(1);
 }
 
+#if 0
 AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
 {
     if(count>0) {
@@ -62,6 +70,41 @@ AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
         return rt;  // return the last active token, which will be the last token to finish and thus finishing our AsyncAll
     } else
         return AsyncToken();
+}
+#endif
+
+MaskSet::Promise LssChannelBase::on(const MaskSet& set) {
+    // todo: this can be merged with ReadAsync() if we add ReadAsync() to Channel and remove usage of txn in servo class (better thread safety)
+    unsigned long txn = set.txn;
+    auto p = MaskSet::Promise(set);
+    pthread_mutex_lock(&promise_lock);
+    ptpromises.insert(ptpromises.end(), p);
+    pthread_mutex_unlock(&promise_lock);
+    return p;
+}
+
+void LssChannelBase::dispatchPromises() {
+    //printf("%ld po\n", ptpromises.size());
+
+    pthread_mutex_lock(&promise_lock);
+    auto p = ptpromises.begin(), _p = ptpromises.end();
+    while( p != _p && (*p)->txn < txn_current) {
+        p++;
+    }
+    if(p == ptpromises.begin()) {
+        // nothing to run
+        pthread_mutex_unlock(&promise_lock);
+        return;
+    }
+
+    std::list<MaskSet::Promise> runlist(ptpromises.begin(), p); // copy runlist from promises list
+    ptpromises.erase(ptpromises.begin(), p);    // remove from promises list
+    pthread_mutex_unlock(&promise_lock);
+
+    // now trigger each promise in our runlist
+    for(p = runlist.begin(), _p = runlist.end(); p != _p; p++)
+        p->resolve();   // todo: this should be given a parameter, which means Promise must store some kind of token typically...the resolve can chose to pass that in or not
+
 }
 
 bool LssChannelBase::waitFor(const AsyncToken& token)
@@ -147,11 +190,6 @@ short LssChannelBase::scan(short beginId, short endId)
         create(discovered, N);
 #endif
     return N;
-}
-
-LssChannelBase::~LssChannelBase()
-{
-    free();
 }
 
 void LssChannelBase::alloc(short n)

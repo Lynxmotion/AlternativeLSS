@@ -4,6 +4,8 @@
 #include "../LssCommunication.h"
 #include "../AsyncToken.h"
 
+#include <list>
+
 class LynxServo;
 
 
@@ -30,6 +32,9 @@ public: // todo: should be private
     unsigned long txn_current;  // transmission number we are sending now
     unsigned long txn_next;     // next transmission number we will assign
 
+    pthread_mutex_t promise_lock;
+    std::list<MaskSet::Promise> ptpromises;
+
 public:
     LssChannelBase(const char* channel_name=nullptr);
     virtual ~LssChannelBase();
@@ -52,10 +57,14 @@ public:
     inline void create(const short (&ids)[N]) { create(ids, N); }
 
     // perform a read
-    AsyncToken ReadAsyncAll(LssCommands commands);
+    //AsyncToken ReadAsyncAll(LssCommands commands);
 
     // wait for an async operation to finish
     bool waitFor(const AsyncToken& token);
+
+    // get a promise for when the transaction completes
+    MaskSet::Promise on(const MaskSet& set);
+    void dispatchPromises();
 
 protected:
     void alloc(short n);

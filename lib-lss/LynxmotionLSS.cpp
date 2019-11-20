@@ -91,20 +91,20 @@ void LynxServo::ClearAsync(LssCommands commands)
 }
 
 // initiate an asynchronous read of one or more servo registers
-AsyncToken LynxServo::ReadAsync(LssCommands commands)
+MaskSet::Promise LynxServo::ReadAsync(LssCommands commands)
 {
-  if (!isEnabled()) 
-    return (enableAfter_millis>0)
-      ? AsyncToken::Unresponsive()  // in unresponsive period
-      : AsyncToken();               // must be attached to a channel
+  if (!isEnabled()) {
+      MaskSet::Promise p;
+      p.reject();
+      return p;  // must be attached to a channel
+  }
 
   // ensure we only have supported async commands
   commands &= LssAsyncCommandSet;
   
   //if (mask.txn == 0 || mask.read == mask.completed) {   // old way would halt servo if TO occured since mask.txn!=0 and mask.read!=completed
   //if (mask.txn != channel->txn_current || mask.read==mask.completed) {
-    if (mask.txn ==0) {
-
+  if (mask.txn ==0) {
     // setup a new read transaction
     memset(&mask, 0, sizeof(MaskSet));
     mask.txn = channel->txn_next++;
@@ -115,7 +115,7 @@ AsyncToken LynxServo::ReadAsync(LssCommands commands)
   // call update to send if we have the clear-to-send txn token
   update();
 
-  return AsyncToken(mask);
+  return channel->on(mask);
 }
 
 #define SENDIF(lssbit) if((unsent & lssbit)>0) { /*LSS_LOGGING.print("Send " #lssbit); LSS_LOGGING.print("  "); LSS_LOGGING.print(channel->txn_current);  LSS_LOGGING.print("  "); LSS_LOGGING.println(isAsyncComplete() ? "Complete":"Pending");*/ mask.requested |= lssbit; Write(LssQuery|lssbit); }

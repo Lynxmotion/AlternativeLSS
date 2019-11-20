@@ -68,7 +68,7 @@ class LynxServo {
 #if defined(LSS_STATS)
     // supplying NULL to _stats argument will use a global shared Servo stats object (aggregated servo stats)
     class Statistics;
-    LynxServo(short _ID, int _units=LssDegrees, Statistics* _stats=NULL);
+    LynxServo(short _ID=0, int _units=LssDegrees, Statistics* _stats=NULL);
 #else
     LynxServo(short _ID, int _units=LssDegrees);
 #endif
@@ -85,7 +85,7 @@ class LynxServo {
     void WritePosition(short p);
 
     // initiate an asynchronous read of one or more servo registers
-    AsyncToken ReadAsync(LssCommands commands);
+    MaskSet::Promise  ReadAsync(LssCommands commands);
     void ClearAsync(LssCommands commands);
 
     void dispatch(LynxPacket pkt);

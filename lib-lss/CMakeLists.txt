@@ -6,6 +6,7 @@ set(SOURCE_FILES
         AsyncToken.h
         LssCommon.h LssCommon.cpp
         LssChannel.h
+        LssPromise.h
         LssCommunication.h LssCommunication.cpp
         LynxmotionLSS.h LynxmotionLSS.cpp
         platform/LssChannel.h platform/LssChannel.cpp

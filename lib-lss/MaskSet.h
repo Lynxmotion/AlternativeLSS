@@ -3,12 +3,14 @@
 
 #include "LynxmotionLSS-Config.h"
 #include "LssCommunication.h"
-
+#include "LssPromise.h"
 
 class MaskSet
     // TODO: rename to AsyncTransaction
 {
 public:
+    using Promise = LssPromise<const MaskSet>;
+
     unsigned long txn;  // current transmission number for this request
     LssCommands read;
     LssCommands requested;

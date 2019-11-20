@@ -5,11 +5,14 @@
 #include "LssCommunication.h"
 #include "MaskSet.h"
 
+#include <functional>
+
 class AsyncToken
 {
 public:
     AsyncToken() : set(NULL) {}
     AsyncToken(const AsyncToken& copy) : set(copy.set) {}
+    AsyncToken(AsyncToken&& mv) : set(mv.set) { mv.set = nullptr; }
     AsyncToken(const MaskSet& _set) : set(&_set) {}
 
     inline AsyncToken& operator=(const AsyncToken& t) { set = t.set; return *this; }
