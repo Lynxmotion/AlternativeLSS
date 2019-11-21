@@ -7,9 +7,6 @@
 
 #include <unistd.h>
 
-// the ID of the connected servo
-#define SERVO_ID			19
-
 /// Repeat the update 4 times a second
 #define UPDATE_DELAY			10
 

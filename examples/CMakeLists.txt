@@ -1,2 +1,3 @@
 add_subdirectory(SimpleRead)
 add_subdirectory(MultiRead)
+add_subdirectory(Humanoid)
