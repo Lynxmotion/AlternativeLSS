@@ -45,6 +45,14 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'R': ACCEPT(LssAngularRange);
       case 'S': ACCEPT(LssAngularStiffness);
     }
+    case 'E': SWITCH(LssInvalid) {
+      case 'M': ACCEPT(LssMotionControl);
+    }
+    case 'F': SWITCH(LssInvalid) {
+      case 'P': SWITCH(LssInvalid) {
+        case 'C': ACCEPT(LssFilterPoleCount);
+      }
+    }
     case 'M': SWITCH(LssInvalid) {
       case 'D': ACCEPT(LssMove|LssDegrees);
     }
@@ -206,6 +214,15 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
         case LssOriginOffset:
           *pout++ = 'O';
           break;
+      case LssMotionControl:
+          *pout++ = 'E';
+          *pout++ = 'M';
+          break;
+      case LssFilterPoleCount:
+          *pout++ = 'F';
+          *pout++ = 'P';
+          *pout++ = 'C';
+          break;
         case LssDefault:
           *pout++ = 'D';
           *pout++ = 'E';
@@ -246,11 +263,16 @@ String LynxPacket::toString() const {
 char* LynxPacket::serialize(char* out) const
 {
   // print ID efficiently
-  if(id>=10) {
-    *out++ = '0'+(id/10);
-    *out++ = '0'+(id%10);
+  unsigned char x = id;
+  if(x>=100) {
+      *out++ = '0'+(x/100);
+      x %= 100;
+  }
+  if(x>=10) {
+    *out++ = '0'+(x/10);
+    *out++ = '0'+(x%10);
   } else {
-    *out++ = '0'+id;
+    *out++ = '0'+x;
   }
 
   // print command code
