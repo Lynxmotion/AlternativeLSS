@@ -85,7 +85,7 @@ class LynxServo {
     void WritePosition(short p);
 
     // initiate an asynchronous read of one or more servo registers
-    MaskSet::Promise  ReadAsync(LssCommands commands);
+//    MaskSet::Promise  ReadAsync(LssCommands commands);
     void ClearAsync(LssCommands commands);
 
     void dispatch(LynxPacket pkt);

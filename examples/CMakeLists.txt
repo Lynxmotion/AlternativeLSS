@@ -1,3 +1,4 @@
-add_subdirectory(SimpleRead)
-add_subdirectory(MultiRead)
-add_subdirectory(Humanoid)
+add_subdirectory(ChannelReadWrite)
+#add_subdirectory(SimpleRead)
+#add_subdirectory(MultiRead)
+#add_subdirectory(Humanoid)

@@ -52,6 +52,7 @@ void LynxServo::WritePosition(short p)
   Write(LssPosition|units, p);
 }
 
+# if 0
 void LynxServo::Write(LssCommands cmd)
 {
   if(isEnabled()) {
@@ -117,6 +118,7 @@ MaskSet::Promise LynxServo::ReadAsync(LssCommands commands)
 
   return channel->on(mask);
 }
+#endif
 
 #define SENDIF(lssbit) if((unsent & lssbit)>0) { /*LSS_LOGGING.print("Send " #lssbit); LSS_LOGGING.print("  "); LSS_LOGGING.print(channel->txn_current);  LSS_LOGGING.print("  "); LSS_LOGGING.println(isAsyncComplete() ? "Complete":"Pending");*/ mask.requested |= lssbit; Write(LssQuery|lssbit); }
 void LynxServo::update()

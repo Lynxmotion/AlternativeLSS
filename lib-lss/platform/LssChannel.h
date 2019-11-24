@@ -2,7 +2,8 @@
 
 #include "../LynxmotionLSS-Config.h"
 #include "../LssCommunication.h"
-#include "../AsyncToken.h"
+#include "../LssTransaction.h"
+#include "../LssPromise.h"
 
 #include <list>
 
@@ -32,8 +33,8 @@ public: // todo: should be private
     unsigned long txn_current;  // transmission number we are sending now
     unsigned long txn_next;     // next transmission number we will assign
 
-    pthread_mutex_t promise_lock;
-    std::list<MaskSet::Promise> ptpromises;
+    pthread_mutex_t txlock;
+    std::list<LssTransaction> transactions;
 
 public:
     LssChannelBase(const char* channel_name=nullptr);
@@ -42,8 +43,9 @@ public:
     virtual void free();
 
     virtual void update() =0;
-    virtual void send(const LynxPacket& p);
     virtual short scan(short beginId, short endId);
+
+    LssTransaction::Promise send(std::initializer_list<LynxPacket> p);
 
     LssChannelBase& add(LynxServo& servo);
 
@@ -60,15 +62,25 @@ public:
     //AsyncToken ReadAsyncAll(LssCommands commands);
 
     // wait for an async operation to finish
-    bool waitFor(const AsyncToken& token);
+//    bool waitFor(const AsyncToken& token);
 
     // get a promise for when the transaction completes
-    MaskSet::Promise on(const MaskSet& set);
-    void dispatchPromises();
+    //MaskSet::Promise on(const MaskSet& set);
+    //void dispatchPromises();
 
 protected:
     void alloc(short n);
 
     // transmit a serialized packet through the channel
     virtual void transmit(const char* pkt_bytes, int count)=0;
+    virtual void transmit(const LynxPacket& pkt);
+
+    // driver loop
+    void driverIdle();
+    void driverDispatch(LynxPacket& p);
+
+    void completeTransaction();
+
+    // on receiving a packet, this adds to the given transaction (usually the current one)
+    //void dispatchPacket(LssTransaction& tx, const LynxPacket& p);
 };

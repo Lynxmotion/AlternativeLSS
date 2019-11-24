@@ -17,27 +17,25 @@ class LssPosixChannel : public LssChannelBase {
 public: // todo: should be private
     const char* devname;
     int baudrate;
-    char buffer[256];
-    char* pbuffer;
 
     posix_serial_private* priv;
 
     unsigned long bytes_sent, bytes_received;
 
 public:
-    LssPosixChannel(const char* channel_name=nullptr);
-    virtual ~LssPosixChannel();
+    explicit LssPosixChannel(const char* channel_name=nullptr);
+    ~LssPosixChannel() override;
 
-    virtual void free();
+    void free() override;
 
-    virtual void begin(const char* devname, int baudrate);
-    virtual void update();
+    bool begin(const char* devname, int baudrate);
 
-    virtual void transmit(const char* pkt_bytes, int count);
+    void update() override;
+
+    using LssChannelBase::transmit;
+    void transmit(const char* pkt_bytes, int count=-1) override;
 
 private:
     void* run();
     static void* s_run(void*);
-
-    void open();
 };

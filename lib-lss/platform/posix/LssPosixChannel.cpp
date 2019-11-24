@@ -8,9 +8,13 @@
 #include <sys/signal.h>
 #include <sys/types.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
+#include <linux/serial.h>
 #include <pthread.h>
 
 #include <functional>
+#include <poll.h>
+#include <asm/ioctls.h>
 
 #define BAUDRATE B115200
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -24,18 +28,13 @@
 
 class posix_serial_private {
 public:
-    // file descriptor of serial port
-    int fd;
-
-    // our port settings, and saved settings to restore when closing
-    struct termios oldtio, newtio;
-
     // processing loop variables
+    int fd;
     pthread_t loop;
     ChannelState state; // current loop task/state
 
     inline posix_serial_private()
-        : fd(0), state(ChannelStopped)
+        : fd(0), loop(0), state(ChannelStopped)
     {}
 };
 
@@ -48,7 +47,7 @@ LssPosixChannel::~LssPosixChannel() {
     free();
 }
 
-void LssPosixChannel::begin(const char* _devname, int _baudrate)
+bool LssPosixChannel::begin(const char* _devname, int _baudrate)
 {
     free();     // close and will reopen
 
@@ -81,7 +80,9 @@ void LssPosixChannel::begin(const char* _devname, int _baudrate)
         pthread_join(priv->loop, &rv);
         delete priv;
         priv = nullptr;
+        return false;
     }
+    return true;
 }
 
 void LssPosixChannel::free() {
@@ -99,47 +100,6 @@ void LssPosixChannel::free() {
     }
 }
 
-void LssPosixChannel::open()
-{
-    // todo: just move this into the processling loop
-    pbuffer = buffer;
-
-    /* open the device to be non-blocking (read will return immediatly) */
-    priv->fd = ::open(devname, O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (priv->fd <0) {
-        perror(devname);
-        goto error;
-    }
-
-    /* Make the file descriptor asynchronous (the manual page says only
-       O_APPEND and O_NONBLOCK, will work with F_SETFL...) */
-    //fcntl(priv->fd, F_SETFL, FASYNC);
-
-    tcgetattr(priv->fd,&priv->oldtio); /* save current port settings */
-    priv->newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD; // | CRTSCTS
-    priv->newtio.c_cflag &= ~(PARENB | PARODD); // No parity
-    priv->newtio.c_cflag &= ~CRTSCTS; // No hardware handshake
-    priv->newtio.c_cflag &= ~CSTOPB; // 1 stopbit
-
-    priv->newtio.c_iflag = IGNBRK;
-    priv->newtio.c_iflag &= ~(IXON | IXOFF | IXANY); // No software handshake
-    priv->newtio.c_iflag = IGNPAR;
-
-    priv->newtio.c_oflag = 0;
-    priv->newtio.c_lflag = 0;
-    priv->newtio.c_cc[VMIN]=1;
-    priv->newtio.c_cc[VTIME]=0;
-    tcflush(priv->fd, TCIFLUSH);
-    tcsetattr(priv->fd,TCSANOW,&priv->newtio);
-
-    return;
-error:
-    if(priv->fd >0) {
-        close(priv->fd);
-        priv->fd = 0;
-    }
-}
-
 void* LssPosixChannel::s_run(void* inst) {
     return ((LssPosixChannel*)inst)->run();
 }
@@ -149,21 +109,81 @@ void* LssPosixChannel::run()
     if(priv == nullptr) return nullptr;
     priv->state = ChannelStarting;
 
-    fd_set         readfs;
-    struct timeval timeout;
     int errors = 0;
     int consecutive_errors = 0;
 
-    open();
+    // file descriptor of serial port
+    int fd;
+    fd_set readfs;
+    struct pollfd ufds;
+    struct timeval timeout;
+
+    // our port settings, and saved settings to restore when closing
+    struct termios oldtio, newtio;
+    struct serial_struct serial;
+    bool restore_tio = false;
+
+    // todo: just move this into the processling loop
+    char buffer[256];
+    char* pbuffer = buffer;
+
+    //LssTransaction* ctx = nullptr;
+
+reopen:
+    /* open the device to be non-blocking (read will return immediately) */
+    fd = ::open(devname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
+    if (fd <0) {
+        perror(devname);
+        errors++;
+        consecutive_errors++;
+        if(consecutive_errors > 300)
+            goto exit_serial_processing;
+        sleep(1);
+        goto reopen;
+    }
+
+    // todo: generate a callback or promise here so the app can do some startup init anytime the port is reopened
+
+    /* Make the file descriptor asynchronous (the manual page says only
+       O_APPEND and O_NONBLOCK, will work with F_SETFL...) */
+    //fcntl(fd, F_SETFL, FASYNC);
+
+    ioctl(fd, TIOCGSERIAL, &serial);
+    serial.flags |= ASYNC_LOW_LATENCY;
+    ioctl(fd, TIOCSSERIAL, &serial);
+
+    tcgetattr(fd,&oldtio); /* save current port settings */
+    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD; // | CRTSCTS
+    newtio.c_cflag &= ~(PARENB | PARODD); // No parity
+    newtio.c_cflag &= ~CRTSCTS; // No hardware handshake
+    newtio.c_cflag &= ~CSTOPB; // 1 stopbit
+
+    newtio.c_iflag = IGNBRK;
+    newtio.c_iflag &= ~(IXON | IXOFF | IXANY); // No software handshake
+    newtio.c_iflag = IGNPAR;
+
+    newtio.c_oflag = 0;
+    newtio.c_lflag = 0;
+    newtio.c_lflag &= ~(ICANON|ECHO); /* Clear ICANON and ECHO. */
+
+    newtio.c_cc[VMIN]=1;
+    newtio.c_cc[VTIME]=0;
+    tcflush(fd, TCIFLUSH);
+    tcsetattr(fd,TCSANOW,&newtio);
+    restore_tio = true; // remember to restore old settings
 
     priv->state = ChannelIdle;
+    priv->fd = fd;
 
     /* Initialize the input set */
     FD_ZERO(&readfs);
-    FD_SET(priv->fd, &readfs);
+    FD_SET(fd, &readfs);
+
+    ufds.fd = fd;
+    ufds.events = POLLIN;
 
     /* allow the process to receive SIGIO */
-    //fcntl(priv->fd, F_SETOWN, getpid());
+    //fcntl(fd, F_SETOWN, getpid());
 
     /* after receiving SIGIO, wait_flag = FALSE, input is available
        and can be read */
@@ -172,37 +192,36 @@ void* LssPosixChannel::run()
 
         /* Initialize the timeout structure */
         timeout.tv_sec  = 0;
-        timeout.tv_usec = 20000;
+        timeout.tv_usec = 1000;
 
-        /* Do the select */
-        int n = select(priv->fd+1, &readfs, NULL, NULL, &timeout);
-
-/* See if there was an error */
-        if (n < 0) {
-            IFLOG(perror("select failed"));
-            errors++;
-            consecutive_errors++;
-        } else if (n == 0) {
-            IFLOG( puts("+to") );
-            dispatchPromises();
+        int res = poll(&ufds, 1, 1);
+        if(res<0) {
+            IFLOG(perror("polling error"));
+            goto exit_serial_processing;
+        } else if(res == 0) {
+            // check for new transaction to send
+            driverIdle();
             continue;
-        } else {
-            // We have input
-            if (!FD_ISSET(priv->fd, &readfs))
-                continue;   // go back to loop begin, but we could call process() here
+        }
+
+        // check if poll() is telling us this port is closed or missing
+        if(ufds.revents & (POLLNVAL|POLLERR|POLLHUP)) {
+            priv->state = ChannelError;
+            // port is not longer available
+            close(fd);
+            priv->fd = fd = 0;
+            goto reopen;
         }
 
         // process data, read from serial
         priv->state = ChannelProcessing;
 
-        IFLOG(if(pbuffer > buffer)  printf("[+= %s]\n", buffer));
-        int bytes_read = read(priv->fd, pbuffer, sizeof(buffer) - (pbuffer - buffer));
+        //IFLOG(if(pbuffer > buffer)  printf("[+= %s]\n", buffer));
+        int bytes_read = read(fd, pbuffer, sizeof(buffer) - (pbuffer - buffer));
         char *pb = buffer;
         pbuffer += bytes_read;
         *pbuffer = 0;  // null terminate
         bytes_received += bytes_read;
-
-        IFLOG(printf("<=%s\n", buffer));
 
         char* p = pb;
         while(*p) {
@@ -210,17 +229,12 @@ void* LssPosixChannel::run()
                 pb = p;
             }
             else if(*p == '\r') {
+                IFLOG(printf("<=%s\n", pb));
+
                 // dispatch packet to destination servo (if we have it)
                 LynxPacket packet(pb + 1);
-                for(int i=0; i<count; i++) {
-                    if(servos[i]->id == packet.id) {
-                        servos[i]->dispatch(packet);
-                        consecutive_errors = 0;
-                        dispatchPromises();
-                        break;
-                    }
-                }
-
+                driverDispatch(packet);
+                *p = 0;
                 pb = p + 1;
             }
             p++;
@@ -230,7 +244,6 @@ void* LssPosixChannel::run()
             // move buffer to remove processed packets
             int n = pbuffer - pb;
             if(n > 0) {
-                IFLOG(printf("[mv %d:%s]\n", n, pb));
                 memmove(buffer, pb, n+1);
                 pbuffer = buffer + n;
             } else
@@ -238,15 +251,20 @@ void* LssPosixChannel::run()
         }
     }
 
-    // restore old port settings
-    tcsetattr(priv->fd, TCSANOW, &priv->oldtio);
-
-    // close the port
-    close(priv->fd);
+exit_serial_processing:
+    priv->state = ChannelStopping;
+    if(fd >0) {
+        close(fd);
+        fd = 0;
+    }
     priv->fd = 0;
 
-    priv->state = ChannelStopped;
-    return priv;
+    // restore old port settings
+    if(restore_tio)
+        tcsetattr(fd, TCSANOW, &oldtio);
+
+    priv->state = ChannelError;
+    return nullptr;
 }
 
 void LssPosixChannel::update() {
@@ -254,8 +272,12 @@ void LssPosixChannel::update() {
 }
 
 void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
-    IFLOG(printf("=> %s", pkt_bytes));
-    bytes_sent += count;
-    write(priv->fd, pkt_bytes, count);
+    if(priv->state >= ChannelIdle) {
+        if(count<0)
+            count = strlen(pkt_bytes);
+        IFLOG(printf("=>%s", pkt_bytes));
+        bytes_sent += count;
+        write(priv->fd, pkt_bytes, count);
+    }
 }
 

@@ -7,6 +7,7 @@
 
 #include <functional>
 
+#if 0
 class AsyncToken
 {
 public:
@@ -36,3 +37,4 @@ protected:
     const MaskSet* set;
 };
 
+#endif

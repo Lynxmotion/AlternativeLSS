@@ -7,11 +7,13 @@ set(SOURCE_FILES
         LssCommon.h LssCommon.cpp
         LssChannel.h
         LssPromise.h
+        LssTransaction.h LssTransaction.cpp
         LssCommunication.h LssCommunication.cpp
-        LynxmotionLSS.h LynxmotionLSS.cpp
+        #LynxmotionLSS.h LynxmotionLSS.cpp
         platform/LssChannel.h platform/LssChannel.cpp
         platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
 )
+
 
 # we first add our intermediate object library
 # which will them be linked into an archive and a shared library
@@ -23,6 +25,7 @@ add_library(lss-objlib OBJECT ${SOURCE_FILES})
 
 # set compilation properties on the object library
 set_property(TARGET lss-objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+# target_compile_features(lss-objlib PRIVATE cxx_std_14)
 #set_property(TARGET lss-objlib PROPERTY C_STANDARD 99)
 #target_include_directories(lss-objlib )
 

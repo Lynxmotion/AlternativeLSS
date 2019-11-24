@@ -2,19 +2,23 @@
 #include "LssChannel.h"
 #include "../LynxmotionLSS.h"
 
+//void * operator new (size_t size, void * ptr) { return ptr; }
+
+
 LssChannelBase::LssChannelBase(const char* channel_name)
         : name(channel_name), timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(unresponsive_request_limit), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
           size(0), count(0), servos(NULL),
           txn_current(1), txn_next(1)
 {
-    pthread_mutex_init(&promise_lock, NULL);
+    pthread_mutex_init(&txlock, NULL);
 }
 
 LssChannelBase::~LssChannelBase()
 {
     free();
-    pthread_mutex_destroy(&promise_lock);
+    pthread_mutex_destroy(&txlock);
 }
+
 LssChannelBase& LssChannelBase::add(LynxServo& servo)
 {
     if(count >= size)
@@ -73,40 +77,18 @@ AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
 }
 #endif
 
-MaskSet::Promise LssChannelBase::on(const MaskSet& set) {
-    // todo: this can be merged with ReadAsync() if we add ReadAsync() to Channel and remove usage of txn in servo class (better thread safety)
-    unsigned long txn = set.txn;
-    auto p = MaskSet::Promise(set);
-    pthread_mutex_lock(&promise_lock);
-    ptpromises.insert(ptpromises.end(), p);
-    pthread_mutex_unlock(&promise_lock);
-    return p;
+
+LssTransaction::Promise LssChannelBase::send(std::initializer_list<LynxPacket> packets)
+{
+    pthread_mutex_lock(&txlock);
+    //LssTransaction tx(txn_next++, packets);
+    transactions.emplace_back(txn_next++, packets);
+    auto& promise = transactions.back().promise;
+    pthread_mutex_unlock(&txlock);
+    return promise;
 }
 
-void LssChannelBase::dispatchPromises() {
-    //printf("%ld po\n", ptpromises.size());
-
-    pthread_mutex_lock(&promise_lock);
-    auto p = ptpromises.begin(), _p = ptpromises.end();
-    while( p != _p && (*p)->txn < txn_current) {
-        p++;
-    }
-    if(p == ptpromises.begin()) {
-        // nothing to run
-        pthread_mutex_unlock(&promise_lock);
-        return;
-    }
-
-    std::list<MaskSet::Promise> runlist(ptpromises.begin(), p); // copy runlist from promises list
-    ptpromises.erase(ptpromises.begin(), p);    // remove from promises list
-    pthread_mutex_unlock(&promise_lock);
-
-    // now trigger each promise in our runlist
-    for(p = runlist.begin(), _p = runlist.end(); p != _p; p++)
-        p->resolve();   // todo: this should be given a parameter, which means Promise must store some kind of token typically...the resolve can chose to pass that in or not
-
-}
-
+#if 0
 bool LssChannelBase::waitFor(const AsyncToken& token)
 {
     unsigned long timeout = micros() + timeout_usec;
@@ -122,8 +104,76 @@ bool LssChannelBase::waitFor(const AsyncToken& token)
     }
     return token.isComplete();
 }
+#endif
 
-void LssChannelBase::send(const LynxPacket& p)
+void LssChannelBase::completeTransaction()
+{
+    auto &current = transactions.front();
+    if(current.state == LssTransaction::Completed)
+        current.promise.resolve(current);   // will call promises
+    else
+        current.promise.reject(current);   // will call promises
+
+    pthread_mutex_lock(&txlock);
+    transactions.pop_front();
+    bool transmit_next = !transactions.empty();
+    pthread_mutex_unlock(&txlock);
+
+    // transmit the next transaction
+    if(transmit_next)
+        driverIdle();
+
+}
+
+void LssChannelBase::driverIdle()
+{
+    if(!transactions.empty()) {
+        auto &current = transactions.front();
+        if(current.expired()) {
+            // this transaction has waited too long
+            current.expire();
+            completeTransaction();
+            return;
+        }
+
+        LynxPacket p;
+        do
+        {
+            p = current.next();
+            if(p.id)
+                LssChannelBase::transmit(p);
+        } while (p.id && (p.command & LssQuery)==0);
+
+        if(current.state >= LssTransaction::Completed)
+            completeTransaction();
+    }
+}
+
+void LssChannelBase::driverDispatch(LynxPacket& p) {
+    if (!transactions.empty()) {
+        auto &current = transactions.front();
+        current.dispatch(p);
+        if(current.state >= LssTransaction::Completed) {
+            completeTransaction();
+
+#if 0
+            // todo: update all servos in the transaction
+            for(int i=0; i<count; i++) {
+                if(servos[i]->id == packet.id) {
+                    //servos[i]->dispatch(packet);
+                    consecutive_errors = 0;
+                    //dispatchPromises();
+
+
+                    break;
+                }
+            }
+#endif
+        }
+    }
+}
+
+void LssChannelBase::transmit(const LynxPacket &p)
 {
     char buf[64];
     char* pend = buf;
@@ -217,13 +267,11 @@ void LssChannelBase::free()
     count=0;
 }
 
-//void * operator new (size_t size, void * ptr) { return ptr; }
-
 void LssChannelBase::create(const short* ids, short N)
 {
     short* shadowed_ids = (short*)calloc(N, sizeof(short));
     short shadowed_N = N;
-
+#if 0
     memcpy(shadowed_ids, ids, N*sizeof(short));
 
     // clear out any servos that already exist
@@ -256,4 +304,5 @@ void LssChannelBase::create(const short* ids, short N)
 
     // free shadow mem
     ::free(shadowed_ids);
+#endif
 }
