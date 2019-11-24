@@ -9,7 +9,7 @@
 #endif
 #include <WString.h>
 
-#include <LynxmotionLSS.h>
+#include <LssServo.h>
 
 class CharStream : public Stream
 {

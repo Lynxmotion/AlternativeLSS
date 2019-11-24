@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <LynxmotionLSS.h>
+#include <LssServo.h>
 
 #include <array>
 #include <memory>

@@ -1,5 +1,5 @@
 
-#include "LynxmotionLSS.h"
+#include "LssServo.h"
 
 #include <limits.h>
 

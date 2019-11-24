@@ -1,5 +1,5 @@
 #include "LssPosixChannel.h"
-#include "../../LynxmotionLSS.h"
+#include "../../LssServo.h"
 
 #include <termios.h>
 #include <stdio.h>

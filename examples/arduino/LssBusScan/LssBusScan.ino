@@ -1,4 +1,4 @@
-#include <LynxmotionLSS.h>
+#include <LssServo.h>
 
 /// The serial port that contains the servo
 #define LSS_SERIAL_PORT     Serial1

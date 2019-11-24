@@ -1,6 +1,6 @@
 
 #include "LssChannel.h"
-#include "../LynxmotionLSS.h"
+#include "../LssServo.h"
 
 //void * operator new (size_t size, void * ptr) { return ptr; }
 

@@ -1,4 +1,4 @@
-#include <LynxmotionLSS.h>
+#include <LssServo.h>
 #include <LssCommunication.h>
 #include <LssCommon.h>
 

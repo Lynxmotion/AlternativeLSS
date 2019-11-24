@@ -1,4 +1,4 @@
-#include <LynxmotionLSS.h>
+#include <LssServo.h>
 
 // the ID of the connected servo
 #define SERVO_MASTER_ID     2
