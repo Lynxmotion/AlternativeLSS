@@ -47,6 +47,18 @@ public:
 
     LssTransaction::Promise send(std::initializer_list<LynxPacket> p);
 
+    template<class It>
+    LssTransaction::Promise send(It first, It last)
+    {
+        pthread_mutex_lock(&txlock);
+        //LssTransaction tx(txn_next++, packets);
+        transactions.emplace_back(txn_next++, first, last);
+        auto& promise = transactions.back().promise;
+        pthread_mutex_unlock(&txlock);
+        return promise;
+    }
+
+
     LssChannelBase& add(LynxServo& servo);
 
     bool contains(short servoId) const;
