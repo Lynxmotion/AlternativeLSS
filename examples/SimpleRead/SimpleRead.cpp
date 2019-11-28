@@ -27,18 +27,15 @@ int main() {
     // put your setup code here, to run once:
     channel.begin("/dev/ttyUSB0", 115200);
 
-    // Add one or more servos to the channel
-    channel.add(servo);
-
     unsigned long long _quitting_time = millis() + 30000;
     while(millis() < _quitting_time) {
         // request a number of parameters from the servo
-        servo.ReadAsync(LssPosition | LssVoltage | LssCurrent | LssTemperature)
+        channel.read({ servo }, LssPosition | LssVoltage | LssCurrent | LssTemperature)
                 .then( [&success](const MaskSet& set) -> void {
                     // when the async read is complete, the telemetry of the servo will be
                     // uddated, so we can just output those values.
                     std::cout
-                            << "Servo " << servo.id << ":  Position " << (servo.position / 10.0) << "deg"
+                            << "Servo " << servo.id << ":  tx:" << set.txn  << ":  Position " << (servo.position / 10.0) << "deg"
                             << "   Voltage " << (servo.voltage / 10.0) << "mV   Current " << servo.current
                             << "mA   Temperature " << (servo.temperature / 10.0) << "°C" << std::endl;
                     success++;

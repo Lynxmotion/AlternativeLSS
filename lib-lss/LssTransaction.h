@@ -9,6 +9,24 @@
 #include "MaskSet.h"
 #include <vector>
 
+#include <algorithm>
+
+struct _packet_order_by_busid {
+    inline int operator()(const LynxPacket& lhs, const LynxPacket& rhs) const {
+        return (lhs.id == rhs.id)
+               // put value commands first (not a query)
+               ? (lhs.hasValue == rhs.hasValue) ? 0 : (lhs.hasValue) ? -1 : +1
+               // sort by bus ID
+               : (lhs.id < rhs.id)
+                 ? -1
+                 : (lhs.id > rhs.id)
+                   ? +1
+                   : 0;
+    }
+    static struct _packet_order_by_busid sorter;
+};
+
+
 class LssTransaction {
 public:
     using Promise = LssPromise<const LssTransaction>;
@@ -33,6 +51,16 @@ public:
 
     // construct a new transaction with the given packets to  transmit
     LssTransaction(unsigned long _txn, std::initializer_list<LynxPacket> packets, unsigned long _expire_uSec=20000);
+
+    template<class It>
+    LssTransaction(unsigned long _txn, It first, It last, unsigned long _expire_uSec=20000)
+        : txn(_txn), timestamp(micros()), expireAt(0), expireInterval(_expire_uSec), txt(0), ttfr(0), ttc(0), state(Pending),
+        _packets(first, last)
+    {
+        std::sort(_packets.begin(), _packets.end(), _packet_order_by_busid::sorter);
+        _tx = _packets.begin();
+        _rx = _packets.begin();
+    }
 
     // we cannot copy LssTransactions
     LssTransaction(const LssTransaction& copy) = delete;

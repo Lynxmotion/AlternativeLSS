@@ -4,22 +4,7 @@
 
 #include "LssTransaction.h"
 
-#include <algorithm>
 
-struct _packet_order_by_busid {
-    inline int operator()(const LynxPacket& lhs, const LynxPacket& rhs) const {
-        return (lhs.id == rhs.id)
-               // put value commands first (not a query)
-               ? (lhs.hasValue == rhs.hasValue) ? 0 : (lhs.hasValue) ? -1 : +1
-               // sort by bus ID
-               : (lhs.id < rhs.id)
-                 ? -1
-                 : (lhs.id > rhs.id)
-                   ? +1
-                   : 0;
-    }
-    static struct _packet_order_by_busid sorter;
-};
 
 LssTransaction::LssTransaction(unsigned long _txn, std::initializer_list<LynxPacket> packets, unsigned long _expire_uSec)
     : txn(_txn), timestamp(micros()), expireAt(0), expireInterval(_expire_uSec), txt(0), ttfr(0), ttc(0), state(Pending),

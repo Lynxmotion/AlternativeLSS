@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 /// Repeat the update 4 times a second
-#define UPDATE_DELAY			10
+#define UPDATE_DELAY			5
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)

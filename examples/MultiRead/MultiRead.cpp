@@ -65,7 +65,7 @@ int main() {
                         // when the async read is complete, the telemetry of the servo will be
                         // uddated, so we can just output those values.
                         std::cout
-                                << "Servo " << servo.id << ":  Position " << (servo.position / 10.0) << "deg"
+                                << "Servo " << servo.id << ":  tx:" << set.txn << "  Position " << (servo.position / 10.0) << "deg"
                                 << "   Voltage " << (servo.voltage / 10.0) << "mV   Current " << servo.current
                                 << "mA   Temperature " << (servo.temperature / 10.0) << "°C" << std::endl;
                         success++;

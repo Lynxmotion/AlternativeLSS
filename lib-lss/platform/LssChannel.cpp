@@ -81,7 +81,6 @@ AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
 LssTransaction::Promise LssChannelBase::send(std::initializer_list<LynxPacket> packets)
 {
     pthread_mutex_lock(&txlock);
-    //LssTransaction tx(txn_next++, packets);
     transactions.emplace_back(txn_next++, packets);
     auto& promise = transactions.back().promise;
     pthread_mutex_unlock(&txlock);

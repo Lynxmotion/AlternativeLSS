@@ -30,12 +30,31 @@ int main() {
     unsigned long long _quitting_time = millis() + 300000;
     while(millis() < _quitting_time) {
 
+        if(success % 5) {
+            channel.send({
+                                 LynxPacket(29, LssCurrent|LssQuery),
+                                 LynxPacket(28, LssCurrent|LssQuery),
+                                 LynxPacket(27, LssCurrent|LssQuery)
+                         })
+                    .then( [&success](const LssTransaction& tx) {
+                        auto packets = tx.packets();
+                        printf("mA");
+                        for(auto p: packets) {
+                            if(p.hasValue)
+                                printf("  %5d", p.value);
+                        }
+                        printf("\n");
+                    });
+        }
+
+
         channel.send({
             LynxPacket(19, LssPosition|LssQuery|LssDegrees),
             LynxPacket(18, LssPosition|LssQuery|LssDegrees),
             LynxPacket(17, LssPosition|LssQuery|LssDegrees)
         })
-            .then( [](const LssTransaction& tx) {
+            .then( [&success](const LssTransaction& tx) {
+                success++;
                 auto packets = tx.packets();
                 for(auto p: packets) {
                     //printf("tx returned %d\n", val);
@@ -51,7 +70,8 @@ int main() {
                     }
                 }
             })
-            .otherwise( [](const LssTransaction& tx) {
+            .otherwise( [&failed](const LssTransaction& tx) {
+                failed++;
                 switch(tx.state) {
                     case LssTransaction::Expired: printf("expired tx %ld\n", tx.txn); break;
                 }
