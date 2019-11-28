@@ -16,7 +16,7 @@
 int delay = 0;
 
 bool learn_range = false;
-bool learn_model = true;
+bool learn_model = false;
 
 const int LEARN_MODEL_SPEED[] = {15, 50, 100};
 
@@ -97,7 +97,7 @@ int main() {
     int success = 0, failed = 0;
 
     // put your setup code here, to run once:
-    channel.begin("/dev/ttyUSB1", 115200);
+    channel.begin("/dev/ttyUSB0", 115200);
 
     // disable motion controller on servos, we are going to burst updates so it only gets in the way
     channel.transmit(LynxPacket(254, LssMotionControl, 0));
