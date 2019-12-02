@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <unistd.h>
+#include <climits>
 
 #include "CompliantJoint.h"
 
@@ -146,6 +147,7 @@ int main() {
         joints[1].moveTo(-800);
         joints[2].moveTo(400);
     } else if(!learn_range) {
+        // initial position of ARM
         joints[0].moveTo(-165);
         joints[1].moveTo(463);
         joints[2].moveTo(310);

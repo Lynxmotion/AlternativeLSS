@@ -188,14 +188,14 @@ public:
     int min;
     int max;
 
-    inline Range() : current(0), target(0), min(INT_MIN), max(INT_MAX) {}
+    inline Range() : current(0), target(0), min(std::numeric_limits<int>::min()), max(std::numeric_limits<int>::max()) {}
 
     int delta() const { return target - current; }
 
     inline void limits(int _min, int _max) { min = _min; max = _max; }
 };
 
-using namespace Eigen;
+//using namespace Eigen;
 
 class CompliantJoint {
 public:
@@ -232,8 +232,8 @@ public:
 
     int compliantUntil;              // millis timestamp when we switched to compliance
 
-    MatrixXd gravity;             // vector for gravity
-    MatrixXd externalForce;       // estimated/deduced vector of force we are experiencing
+//    MatrixXd gravity;             // vector for gravity
+//    MatrixXd externalForce;       // estimated/deduced vector of force we are experiencing
 
     double mass;                  // mass of the joint and any other joints connected to this joint --- but movable joints mean different moment forces so this should be just the mass of this joint section
     double massPayload;           // a temporary mass the robot is carrying or in any way burdened
