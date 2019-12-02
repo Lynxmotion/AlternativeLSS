@@ -1,7 +1,7 @@
 
 set(SOURCE_FILES
         LynxmotionLSS-Config.h
-        aggregate.h
+        aggregate.h MovingAverage.h
         MaskSet.h
         AsyncToken.h
         LssCommon.h LssCommon.cpp

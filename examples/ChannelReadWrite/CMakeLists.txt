@@ -2,7 +2,7 @@
 # we first add our intermediate object library
 # which will them be linked into an archive and a shared library
 #add_library(sigint-objlib OBJECT ${SOURCE_FILES} $<TARGET_OBJECTS:sigint-matrix> $<TARGET_OBJECTS:sigint-streams> $<TARGET_OBJECTS:sigint-numerical>)
-add_executable(lss-channelrw ChannelReadWrite.cpp)
+add_executable(lss-channelrw ChannelReadWrite.cpp raf.h)
 
 # currently no dependencies
 add_dependencies(lss-channelrw lss-static)

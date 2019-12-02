@@ -139,8 +139,10 @@ void LssChannelBase::driverIdle()
         do
         {
             p = current.next();
-            if(p.id)
+            if(p.id) {
+                p.microstamp = micros();
                 LssChannelBase::transmit(p);
+            }
         } while (p.id && (p.command & LssQuery)==0);
 
         if(current.state >= LssTransaction::Completed)
@@ -149,6 +151,7 @@ void LssChannelBase::driverIdle()
 }
 
 void LssChannelBase::driverDispatch(LynxPacket& p) {
+    p.microstamp = micros();
     if (!transactions.empty()) {
         auto &current = transactions.front();
         current.dispatch(p);
@@ -187,6 +190,7 @@ void LssChannelBase::transmit(const LynxPacket &p)
         *pend=0;
 
         // transmit to LSS bus
+        // p.microstamp = micros(); //todo: how can we have this set in the const transmit call?
         transmit(pbegin, pend - pbegin);
     }
 }

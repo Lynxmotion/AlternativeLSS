@@ -12,6 +12,7 @@
 #define BIT(n) (((unsigned long)1)<<n)
 
 typedef unsigned long LssCommands;
+typedef unsigned long LssModifiers;
 
 #define  LssInvalid          0
 #define  LssAction           BIT(1)
@@ -24,11 +25,6 @@ typedef unsigned long LssCommands;
 #define  LssPulse            BIT(6)
 #define  LssUnits            (LssDegrees|LssRPM|LssPulse)
 
-  // modifiers
-#define  LssTimedMove        BIT(11)
-#define  LssSpeed            BIT(15)
-#define  LssModifiers        (LssTimedMove|LssSpeed)
-
 #define  LssID               BIT(7)
 #define  LssBaudRate         BIT(8)
 #define  LssLimp             BIT(9)
@@ -40,6 +36,7 @@ typedef unsigned long LssCommands;
 #define  LssMaxSpeed         BIT(17)
 #define  LssAngularRange     BIT(18)
 #define  LssAngularStiffness BIT(19)
+#define  LssAngularHoldingStiffness BIT(31)
 #define  LssOriginOffset     BIT(20)
 #define  LssGyreDirection    BIT(21)
 #define  LssLEDColor         BIT(22)
@@ -51,7 +48,14 @@ typedef unsigned long LssCommands;
 #define  LssFilterPoleCount  BIT(28)
 #define  LssDefault          BIT(29)
 #define  LssConfirm          BIT(30)
-#define  LssCommandSet       ((0xffffffff & ~(LssCommandModes|LssUnits|LssModifiers)) | LssQuery)
+#define  LssCommandSet       ((0xffffffffffff & ~(LssCommandModes|LssUnits)) | LssQuery)
+
+// modifiers
+#define  LssModTimedMove            BIT(2)
+#define  LssModSpeed                BIT(3)
+#define  LssModCurrentHaltAndHold   BIT(4)
+#define  LssModCurrentHaltAndLimp   BIT(5)
+#define  LssModifiersSet        (LssTimedMove|LssSpeed|LssModCurrentHaltAndHold)
 
 // commands that are part of servo configuration
 // you probably dont need these for normal control operations
@@ -92,19 +96,27 @@ typedef enum {
 class LynxPacket {
   public:
     short id;
+    unsigned long long microstamp;  // timestamp in microseconds the packet was last transmitted or received
     LssCommands command;
+    LssModifiers modifiers;
     bool hasValue;
     int value;
 
-    inline LynxPacket() : id(0), command(LssInvalid), hasValue(false), value(0) {}
-    inline LynxPacket(short _id, LssCommands _command) : id(_id), command(_command), hasValue(false), value(0) {}
-    inline LynxPacket(short _id, LssCommands _command, int _value) : id(_id), command(_command), hasValue(true), value(_value) {}
+    // modifier values
+    int current;//, speed, timedMove;
+
+    inline LynxPacket() : id(0), microstamp(0), command(LssInvalid), modifiers(0), hasValue(false), value(0) {}
+    inline LynxPacket(short _id, LssCommands _command) : id(_id), microstamp(0), command(_command), modifiers(0), hasValue(false), value(0) {}
+    inline LynxPacket(short _id, LssCommands _command, int _value) : id(_id), microstamp(0), command(_command), modifiers(0), hasValue(true), value(_value) {}
 
     LynxPacket(const char* pkt);
 
     bool operator==(const LynxPacket& rhs) const;
 
     inline void set(int _value) { value=_value; hasValue=true; }
+
+    inline LynxPacket& currentHaltAndHold(int _current) { modifiers |= LssModCurrentHaltAndHold; current = _current; return *this; }
+    inline LynxPacket& currentHaltAndLimp(int _current) { modifiers |= LssModCurrentHaltAndLimp; current = _current; return *this; }
 
     bool parse(const char* pkt);
 
@@ -118,7 +130,14 @@ class LynxPacket {
     // returns the end of the command code string within the 'out' memory, or NULL if an error
     static char* commandCode(LssCommands cmd, char* out);
 
+    // converts
+    static char* modifierCode(LssModifiers mods, char* out);
+
+
 #if defined(HAVE_STRING)
     String toString() const;
 #endif
+
+private:
+    int readValue(const char*& pkt, bool& _hasValue);
 };

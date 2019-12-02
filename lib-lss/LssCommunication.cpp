@@ -44,6 +44,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     case 'A': SWITCH(LssInvalid) {
       case 'R': ACCEPT(LssAngularRange);
       case 'S': ACCEPT(LssAngularStiffness);
+      case 'H': ACCEPT(LssAngularHoldingStiffness);
     }
     case 'E': SWITCH(LssInvalid) {
       case 'M': ACCEPT(LssMotionControl);
@@ -72,6 +73,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'A': SWITCH(LssInvalid) {
         case 'R': ACCEPT(LssQuery|LssAngularRange);
         case 'S': ACCEPT(LssQuery|LssAngularStiffness);
+        case 'H': ACCEPT(LssQuery|LssAngularHoldingStiffness);
       }
       case 'P': ACCEPT(LssQuery|LssPosition|LssPulse);
       case 'D': SWITCH(LssQuery|LssPosition|LssDegrees) {
@@ -114,6 +116,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'A': SWITCH(LssInvalid) {
         case 'R': ACCEPT(LssConfig|LssAngularRange);
         case 'S': ACCEPT(LssConfig|LssAngularStiffness);
+        case 'H': ACCEPT(LssConfig|LssAngularHoldingStiffness);
       }
       case 'S': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssConfig|LssMaxSpeed|LssDegrees);
@@ -199,6 +202,10 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
         case LssAngularStiffness:
           *pout++ = 'A';
           *pout++ = 'S';
+          break;
+      case LssAngularHoldingStiffness:
+          *pout++ = 'A';
+          *pout++ = 'H';
           break;
         case LssLEDColor:
           *pout++ = 'L';
@@ -288,6 +295,22 @@ char* LynxPacket::serialize(char* out) const
     while(*out) out++;  // skip to end
   } else
     *out=0;
+
+    // filter out the member flag
+    if (modifiers & (LssModCurrentHaltAndHold | LssModCurrentHaltAndLimp)) {
+        if(modifiers & LssModCurrentHaltAndLimp) {
+            // halt and limp will take precedence over hold
+            *out++ = 'C';
+            *out++ = 'L';
+        } else {
+            *out++ = 'C';
+            *out++ = 'H';
+        }
+        if (snprintf(out, 8, "%d", current) == -1)
+            return NULL;
+        while(*out) out++;  // skip to end
+    }
+
   return out;
 }
 
@@ -297,12 +320,35 @@ LynxPacket::LynxPacket(const char* pkt)
   parse(pkt);
 }
 
+int LynxPacket::readValue(const char*& pkt, bool& _hasValue)
+{
+    int _value=0;
+    if(isdigit(*pkt) || *pkt=='-') {
+        bool isNegative = false;
+        if(*pkt=='-') {
+            isNegative=true;
+            pkt++;
+        }
+
+        while (*pkt && isdigit(*pkt)) {
+            _value *= 10;
+            _value += (int)(*pkt++ - '0');
+        }
+        if(isNegative)
+            _value *= -1;
+        _hasValue = true;
+    }
+    return _value;
+}
+
+
 bool LynxPacket::parse(const char* pkt)
 {
   // we parse into local variables and then set instance members
   // when we are sure we've successfully parsed.
   short _id=0;
   LssCommands _command=LssInvalid;
+  LssModifiers _modifiers = 0;
   bool _hasValue=false;
   int _value=0;
 #if defined(LSS_LOGGING)
@@ -322,27 +368,28 @@ bool LynxPacket::parse(const char* pkt)
   if(_command == LssInvalid)
     goto bad_read;
 
-  if(isdigit(*pkt) || *pkt=='-') {
-    bool isNegative = false;
-    if(*pkt=='-') {
-      isNegative=true;
-      pkt++;
-    }
-    
-    while (*pkt && isdigit(*pkt)) {
-        _value *= 10;
-        _value += (int)(*pkt++ - '0');
-    }
-    if(isNegative)
-      _value *= -1;
-    _hasValue = true;
-  }
+  _value = readValue(pkt, _hasValue);
 
   id=_id;
   command = _command;
   hasValue = _hasValue;
   value = _value;
-  
+
+  while(*pkt != '\r') {
+    if(*pkt == 'C' && (*(pkt+1) == 'H' || *(pkt+1) == 'L')) {
+       // current halt and hold
+       pkt++;
+       bool hv=false;
+       _value = readValue(pkt, hv);
+       if(hv) {
+           modifiers |= (*pkt == 'L') ? LssModCurrentHaltAndLimp : LssModCurrentHaltAndHold;
+           current = _value;
+       }
+       pkt++;
+    } else
+        pkt++;
+  }
+
   return true;
     
 bad_read:

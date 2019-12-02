@@ -1,24 +1,34 @@
 #include <platform/posix/LssPosixChannel.h>
 #include <LssCommunication.h>
 #include <LssCommon.h>
+#include <MovingAverage.h>
 
 #include <cstdio>
 #include <iostream>
 
 #include <unistd.h>
 
+
+
 /// Repeat the update 4 times a second
-#define UPDATE_DELAY			20
+#define UPDATE_DELAY			12
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
 LssPosixChannel channel;
 
+short servos[] = { 17, 18, 19 };
+
+// mirrored servos on humanoid are always 10 IDs higher than cloned servo, so 27, 28, and 29
+// but we may need to correct for some offsets in tenths of degrees
+short mirror_servo_offsets[] = { -400, -50, 200 };
+
+
 
 int main() {
     unsigned long now=0;
     int success = 0, failed = 0;
-    short servos[] = { 17, 18, 19 };
+    MovingAverage<unsigned long long> avgtime(40);
 
     // put your setup code here, to run once:
     channel.begin("/dev/ttyUSB0", 115200);
@@ -26,49 +36,42 @@ int main() {
     // disable motion controller on servos, we are going to burst updates so it only gets in the way
     channel.transmit(LynxPacket(254, LssMotionControl, 0));
     channel.transmit(LynxPacket(254, LssFilterPoleCount, 3));
+    channel.transmit(LynxPacket(254, LssAngularStiffness, 4));
+    channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, 4));
 
     unsigned long long _quitting_time = millis() + 300000;
     while(millis() < _quitting_time) {
 
-        if(success % 5) {
-            channel.send({
-                                 LynxPacket(29, LssCurrent|LssQuery),
-                                 LynxPacket(28, LssCurrent|LssQuery),
-                                 LynxPacket(27, LssCurrent|LssQuery)
-                         })
-                    .then( [&success](const LssTransaction& tx) {
-                        auto packets = tx.packets();
-                        printf("mA");
-                        for(auto p: packets) {
-                            if(p.hasValue)
-                                printf("  %5d", p.value);
-                        }
-                        printf("\n");
-                    });
-        }
-
-
         channel.send({
-            LynxPacket(19, LssPosition|LssQuery|LssDegrees),
-            LynxPacket(18, LssPosition|LssQuery|LssDegrees),
-            LynxPacket(17, LssPosition|LssQuery|LssDegrees)
+            LynxPacket(servos[2], LssPosition|LssQuery|LssDegrees),
+            LynxPacket(servos[1], LssPosition|LssQuery|LssDegrees),
+            LynxPacket(servos[0], LssPosition|LssQuery|LssDegrees)
         })
-            .then( [&success](const LssTransaction& tx) {
-                success++;
+            .then( [&success,&avgtime](const LssTransaction& tx) {
                 auto packets = tx.packets();
+                std::vector<LynxPacket> updates;
+                int n=0;
+
+                success += packets.size();
+                avgtime.add(tx.ttc);
+                printf("tx-time %ldms  (%lld avg)\n", tx.ttc, avgtime.average());
+
+                // modify packets and resend to mirrored servos
                 for(auto p: packets) {
-                    //printf("tx returned %d\n", val);
                     if(p.hasValue) {
-                        p.id += 10;
-                        p.value *= -1;
-                        switch (p.id) {
-                            case 27: p.value += -400; break;   // shoulder roll
-                            case 28: p.value += -50; break;   // shoulder pitch
-                            case 29: p.value += 200; break;   // elbow
-                        }
-                        channel.send({LynxPacket(p.id, LssAction | LssPosition | LssDegrees, p.value)});
+                        p.id += 10;     // mirrored servos on humanoid are always 10 IDs higher
+                        p.value *= -1;  // mirror degree value for other arm
+                        p.value += mirror_servo_offsets[n];
+                        updates.emplace_back(p.id, LssAction | LssPosition | LssDegrees, p.value);
                     }
+                    n++;
                 }
+
+                // send pack of updates
+                channel.send(updates.begin(), updates.end()).then(
+                        [&success,&avgtime](const LssTransaction& tx) {
+                            success += tx.packets().size();
+                        });
             })
             .otherwise( [&failed](const LssTransaction& tx) {
                 failed++;

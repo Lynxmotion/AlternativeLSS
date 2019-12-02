@@ -109,6 +109,7 @@ void* LssPosixChannel::run()
     if(priv == nullptr) return nullptr;
     priv->state = ChannelStarting;
 
+    int res;
     int errors = 0;
     int consecutive_errors = 0;
 
@@ -150,7 +151,7 @@ reopen:
 
     ioctl(fd, TIOCGSERIAL, &serial);
     serial.flags |= ASYNC_LOW_LATENCY;
-    ioctl(fd, TIOCSSERIAL, &serial);
+    res = ioctl(fd, TIOCSSERIAL, &serial);
 
     tcgetattr(fd,&oldtio); /* save current port settings */
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD; // | CRTSCTS

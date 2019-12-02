@@ -13,7 +13,13 @@ CompliantJoint::CompliantJoint(short joint_lssId, std::string _name)
 
 void CompliantJoint::update()
 {
-
+    if(!limp) {
+        int delta = position.delta();
+        if(current > 300) {
+            int new_pos = 0.5 * (position.current + position.target);
+            moveTo(new_pos);
+        }
+    }
 }
 
 void CompliantJoint::debugPrint()
