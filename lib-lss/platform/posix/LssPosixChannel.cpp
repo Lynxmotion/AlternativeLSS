@@ -115,9 +115,7 @@ void* LssPosixChannel::run()
 
     // file descriptor of serial port
     int fd;
-    fd_set readfs;
     struct pollfd ufds;
-    struct timeval timeout;
 
     // our port settings, and saved settings to restore when closing
     struct termios oldtio, newtio;
@@ -176,10 +174,6 @@ reopen:
     priv->state = ChannelIdle;
     priv->fd = fd;
 
-    /* Initialize the input set */
-    FD_ZERO(&readfs);
-    FD_SET(fd, &readfs);
-
     ufds.fd = fd;
     ufds.events = POLLIN;
 
@@ -190,10 +184,6 @@ reopen:
        and can be read */
     while (priv->state >= ChannelIdle && consecutive_errors < 15) {
         priv->state = ChannelIdle;
-
-        /* Initialize the timeout structure */
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = 1000;
 
         int res = poll(&ufds, 1, 1);
         if(res<0) {
