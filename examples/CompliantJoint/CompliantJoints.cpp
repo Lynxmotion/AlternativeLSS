@@ -103,7 +103,7 @@ void updateJoints(unsigned long now) {
 #define UPDATE_DELAY			20
 
 int main() {
-    int success = 0, failed = 0;
+    int success = 0, failed = 0, consecutiveFailures=0;
     bool ready = true;
 
     // put your setup code here, to run once:
@@ -154,7 +154,7 @@ int main() {
     }
 
     unsigned long long _quitting_time = millis() + 300000;
-    while(millis() < _quitting_time) {
+    while(millis() < _quitting_time && consecutiveFailures < 5) {
         ready = false;
         auto qstart = micros();
         auto _next_update = qstart + 20000;
@@ -167,7 +167,7 @@ int main() {
                          LynxPacket(joints[2].joint, LssCurrent|LssQuery),
                          LynxPacket(joints[2].joint, LssPosition|LssQuery|LssDegrees)
                  })
-                .then( [&success, &ready, qstart](const LssTransaction& tx) {
+                .then( [&success, &ready, &consecutiveFailures, qstart](const LssTransaction& tx) {
                     auto packets = tx.packets();
                     auto now = micros();
                     qtime.add(now - qstart);
@@ -221,7 +221,7 @@ int main() {
                                 updates.emplace_back(j.joint, LssFilterPoleCount, j.cpr);
                                 updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
                             j.cpr_changed = false;
-                            printf("%s CPR %d\n", j.name.c_str(), j.cpr);
+                            //printf("%s CPR %d\n", j.name.c_str(), j.cpr);
                             // fill the CPR
                             //for(int i=1; i<j.cpr; i++)
                             //    updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target);
@@ -255,14 +255,28 @@ int main() {
                         j.position.changed(false);
 
                     }
-                    channel.send(updates.begin(), updates.end()).regardless([&ready, ustart](const LssTransaction& tx2) {
+                    channel.send(updates.begin(), updates.end()).regardless([&ready, &success, &consecutiveFailures, ustart](const LssTransaction& tx2) {
                         utime.add( micros() - ustart);
                         ready = true;
+                        success++;
+                        consecutiveFailures=0;
                     });
                 })
-                .otherwise([&failed, &ready](const LssTransaction& tx) {
-                    printf("tx timed out\n");
+                .otherwise([&failed, &ready, &consecutiveFailures](const LssTransaction& tx) {
+                    // print the state of packets in the transaction
+                    printf("expired: \n");
+                    char s[32];
+                    for(auto p: tx.packets()) {
+                        p.serialize(s);
+                        if(p.command & LssAction)
+                            printf("   > %s\n", s);
+                        else if(p.command & LssQuery)
+                            printf("   %c %s\n", p.hasValue ? '<': '!', s);
+                    }
+
                     ready = true;
+                    failed++;
+                    consecutiveFailures++;
                 });
 
         while(!ready || micros() < _next_update)
@@ -271,7 +285,7 @@ int main() {
 
     printf("sent %d messages (%4.2f msgs/sec)\n", success, success/30.0);
     if(failed>0)
-        printf("   %d failures", failed);
+        printf("   %d failures\n", failed);
     printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
             channel.bytes_sent, channel.bytes_sent/30.0*9, channel.bytes_received, channel.bytes_received/30.0*9);
 
