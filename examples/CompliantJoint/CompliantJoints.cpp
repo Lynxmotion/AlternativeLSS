@@ -21,9 +21,27 @@ LssPosixChannel channel;
 
 
 CompliantJoint joints[] = {
-        CompliantJoint(17, "SH.R"),
-        CompliantJoint(18, "SH.P"),
-        CompliantJoint(19, "ELB"),
+#if 1
+        CompliantJoint(11, "FL.R"),
+        CompliantJoint(12, "FL.P"),
+        CompliantJoint(13, "KL"),
+        CompliantJoint(14, "HL.P"),
+        CompliantJoint(15, "HL.R"),
+        CompliantJoint(16, "HL.Y"),
+        CompliantJoint(17, "SL.R"),
+        CompliantJoint(18, "SL.P"),
+        CompliantJoint(19, "EL"),
+
+        CompliantJoint(21, "FR.R"),
+        CompliantJoint(22, "FR.P"),
+        CompliantJoint(23, "KR"),
+        CompliantJoint(24, "HR.P"),
+        CompliantJoint(25, "HR.R"),
+        CompliantJoint(26, "HR.Y"),
+#endif
+        CompliantJoint(27, "SH.R"),
+        CompliantJoint(28, "SH.P"),
+        CompliantJoint(29, "ER")
 };
 
 
@@ -37,6 +55,8 @@ const int LEARN_MODEL_SPEED[] = {15, 50, 100};
 
 
 void updateJoints(unsigned long now) {
+    printf("%6dms", qtime.average()+utime.average());
+
     bool advance_joint = true;
     bool advance_delay = false;
     for(auto& j : joints) {
@@ -76,15 +96,17 @@ void updateJoints(unsigned long now) {
             );
         } else {
             // standard mode
-            printf("%6dms || %s  %-15s", qtime.average()+utime.average(), j.name.c_str(), CompliantJoint::stateName(j.state));
             j.update(now);
             //printf("%4d° %4dΔ%-4d   %4dmA   ",
             //       (int)j.position.current(), j.position.current().velocity(), j.fudge.average(), (int)j.current
+#if 0
+            printf(" || %s  %-15s", j.name.c_str(), CompliantJoint::stateName(j.state));
             printf("%4d°  %4dF %4dΔ %4dΔ %4dΔ   %4dmA E%-4d Δ%-4dΔ%-4dΔ%-4d  ",
                    (int)j.position.current(), j.fudge.value(),
                    j.position.current().velocity(), j.position.current().acceleration(), j.position.current().jerk(),
                    j.current.current().value(), j.current.current().value() + j.currentBias, j.current.current().velocity(), j.current.current().acceleration(), j.current.current().jerk()
             );
+#endif
         }
     }
 
@@ -97,7 +119,7 @@ void updateJoints(unsigned long now) {
             joints[i].velocity.current += LEARN_MODEL_SPEED[i];
         }
     }
-    printf("\r");
+    printf("\n");
 }
 
 #define UPDATE_DELAY			20
@@ -111,7 +133,7 @@ int main() {
 
 #if 0
     // library doesnt support RESET command yet, so we'll just send as text (and give servos time to complete reset)
-    //channel.transmit("#254RS\r");   usleep(1500000);
+    channel.transmit("#254RS\r");   usleep(1500000);
 #endif
 
     // disable motion controller on servos, we are going to burst updates so it only gets in the way
@@ -120,8 +142,10 @@ int main() {
     channel.transmit(LynxPacket(254, LssFilterPoleCount, 3));
 #endif
     channel.transmit(LynxPacket(254, LssLEDColor, 3));
-    //channel.transmit(LynxPacket(254, LssAngularStiffness, 4));
-    //channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, 12));
+    channel.transmit(LynxPacket(254, LssAngularStiffness, -3));
+    channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, -3));
+    channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, 8));
+    channel.transmit("#254MMD300\r");
 
     /* Some joint setup
      */
@@ -148,26 +172,25 @@ int main() {
         joints[2].moveTo(400);
     } else if(!learn_range) {
         // initial position of ARM
-        joints[0].moveTo(-165);
-        joints[1].moveTo(463);
-        joints[2].moveTo(310);
+        //joints[0].moveTo(-165);
+        //joints[1].moveTo(463);
+        //joints[2].moveTo(310);
     }
 
     unsigned long long _quitting_time = millis() + 300000;
-    while(millis() < _quitting_time && consecutiveFailures < 5) {
+    while(millis() < _quitting_time && consecutiveFailures < 25) {
         ready = false;
         auto qstart = micros();
-        auto _next_update = qstart + 20000;
+        auto _next_update = qstart + 25000;
 
-        channel.send({
-                         LynxPacket(joints[0].joint, LssCurrent|LssQuery),
-                         LynxPacket(joints[0].joint, LssPosition|LssQuery|LssDegrees),
-                         LynxPacket(joints[1].joint, LssCurrent|LssQuery),
-                         LynxPacket(joints[1].joint, LssPosition|LssQuery|LssDegrees),
-                         LynxPacket(joints[2].joint, LssCurrent|LssQuery),
-                         LynxPacket(joints[2].joint, LssPosition|LssQuery|LssDegrees)
-                 })
-                .then( [&success, &ready, &consecutiveFailures, qstart](const LssTransaction& tx) {
+        std::vector<LynxPacket> queries;
+        for(auto j: joints) {
+            queries.emplace_back(j.joint, LssCurrent|LssQuery);
+            queries.emplace_back(j.joint, LssPosition|LssQuery|LssDegrees);
+        }
+
+        channel.send(queries.begin(), queries.end())
+                .then( [&success, &ready, &_next_update, &consecutiveFailures, qstart](const LssTransaction& tx) {
                     auto packets = tx.packets();
                     auto now = micros();
                     qtime.add(now - qstart);
@@ -228,6 +251,13 @@ int main() {
                         }
 #endif
 
+                        if(j.mmd.changed(false)) {
+                            char s[32];
+                            sprintf(s, "#%dMMD%d\r", j.joint, j.mmd.target());
+                            channel.transmit(s);
+                            j.mmd.current(j.mmd.target());
+                        }
+
                         switch (j.state) {
                                 break;
                             case CompliantJoint::PositiveCompliance:
@@ -255,26 +285,30 @@ int main() {
                         j.position.changed(false);
 
                     }
-                    channel.send(updates.begin(), updates.end()).regardless([&ready, &success, &consecutiveFailures, ustart](const LssTransaction& tx2) {
+                    channel.send(updates.begin(), updates.end()).regardless([&ready, &success, &_next_update, &consecutiveFailures, ustart](const LssTransaction& tx2) {
                         utime.add( micros() - ustart);
                         ready = true;
+                        _next_update = micros() + 20000;
                         success++;
                         consecutiveFailures=0;
                     });
                 })
-                .otherwise([&failed, &ready, &consecutiveFailures](const LssTransaction& tx) {
+                .otherwise([&failed, &ready, &_next_update, &consecutiveFailures](const LssTransaction& tx) {
                     // print the state of packets in the transaction
                     printf("expired: \n");
                     char s[32];
-                    for(auto p: tx.packets()) {
+                    unsigned long long st = 0;
+                    for(auto& p: tx.packets()) {
+                        if(st ==0) st = p.microstamp;
                         p.serialize(s);
                         if(p.command & LssAction)
-                            printf("   > %s\n", s);
+                            printf("   %5lld: > %s\n", p.microstamp - st, s);
                         else if(p.command & LssQuery)
-                            printf("   %c %s\n", p.hasValue ? '<': '!', s);
+                            printf("   %5lld: %c %s\n", (p.microstamp>0) ? p.microstamp - st : 0, p.hasValue ? '<': '!', s);
                     }
 
                     ready = true;
+                    _next_update = micros() + 20000;
                     failed++;
                     consecutiveFailures++;
                 });

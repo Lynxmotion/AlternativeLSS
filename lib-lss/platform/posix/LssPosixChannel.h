@@ -34,6 +34,7 @@ public:
 
     using LssChannelBase::transmit;
     void transmit(const char* pkt_bytes, int count=-1) override;
+    void driverSignal() override;
 
 private:
     void* run();

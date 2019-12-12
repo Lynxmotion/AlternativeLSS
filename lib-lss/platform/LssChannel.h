@@ -54,7 +54,10 @@ public:
         //LssTransaction tx(txn_next++, packets);
         transactions.emplace_back(txn_next++, first, last);
         auto& promise = transactions.back().promise;
+        bool sendSignal = transactions.size() ==1;
         pthread_mutex_unlock(&txlock);
+        if(sendSignal)
+            driverSignal();
         return promise;
     }
 
@@ -86,6 +89,7 @@ protected:
     // transmit a serialized packet through the channel
     virtual void transmit(const char* pkt_bytes, int count)=0;
     virtual void transmit(const LynxPacket& pkt);
+    virtual void driverSignal();
 
     // driver loop
     void driverIdle();

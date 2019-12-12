@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <linux/serial.h>
 #include <pthread.h>
 
@@ -26,16 +27,30 @@
 #define IFLOG(x)
 #endif
 
+//#define LOG_ACTIONS
+
 class posix_serial_private {
 public:
     // processing loop variables
     int fd;
+    int sideband;
     pthread_t loop;
     ChannelState state; // current loop task/state
 
+    union {
+        int client_service[2];
+        struct {
+            int client;
+            int service;
+        };
+    } notify;
+
     inline posix_serial_private()
         : fd(0), loop(0), state(ChannelStopped)
-    {}
+    {
+        notify.client = 0;
+        notify.service = 0;
+    }
 };
 
 
@@ -100,6 +115,9 @@ void LssPosixChannel::free() {
     }
 }
 
+void processSignal(int s) {
+}
+
 void* LssPosixChannel::s_run(void* inst) {
     return ((LssPosixChannel*)inst)->run();
 }
@@ -112,10 +130,17 @@ void* LssPosixChannel::run()
     int res;
     int errors = 0;
     int consecutive_errors = 0;
+    int sigs = 0;
 
     // file descriptor of serial port
     int fd;
-    struct pollfd ufds;
+    struct pollfd ufds[2];
+    timespec time = {0, 100000};
+
+    // setup our signal masks for ppoll()
+    sigset_t sigmask;
+    sigfillset(&sigmask);
+    sigdelset(&sigmask, SIGALRM);   // break only for SIGALRM signal
 
     // our port settings, and saved settings to restore when closing
     struct termios oldtio, newtio;
@@ -142,6 +167,12 @@ reopen:
     }
 
     // todo: generate a callback or promise here so the app can do some startup init anytime the port is reopened
+
+    // setup the client/service notification domain socket
+    if(socketpair(AF_LOCAL, SOCK_STREAM | SOCK_NONBLOCK, 0, priv->notify.client_service) == -1) {
+        perror("failed to create domain socket for posix serial processing");
+        goto exit_serial_processing;
+    }
 
     /* Make the file descriptor asynchronous (the manual page says only
        O_APPEND and O_NONBLOCK, will work with F_SETFL...) */
@@ -174,8 +205,10 @@ reopen:
     priv->state = ChannelIdle;
     priv->fd = fd;
 
-    ufds.fd = fd;
-    ufds.events = POLLIN;
+    ufds[0].fd = fd;
+    ufds[0].events = POLLIN;
+    ufds[1].fd = priv->notify.service;
+    ufds[1].events = POLLIN;
 
     /* allow the process to receive SIGIO */
     //fcntl(fd, F_SETOWN, getpid());
@@ -185,9 +218,11 @@ reopen:
     while (priv->state >= ChannelIdle && consecutive_errors < 15) {
         priv->state = ChannelIdle;
 
-        int res = poll(&ufds, 1, 1);
+        int res = ppoll(ufds, 2, &time, &sigmask);
         if(res<0) {
+            // alarm condition
             IFLOG(perror("polling error"));
+            perror("polling error");
             goto exit_serial_processing;
         } else if(res == 0) {
             // check for new transaction to send
@@ -196,12 +231,18 @@ reopen:
         }
 
         // check if poll() is telling us this port is closed or missing
-        if(ufds.revents & (POLLNVAL|POLLERR|POLLHUP)) {
+        if(ufds[0].revents & (POLLNVAL|POLLERR|POLLHUP)) {
             priv->state = ChannelError;
             // port is not longer available
             close(fd);
             priv->fd = fd = 0;
             goto reopen;
+        } else if(ufds[1].revents & POLLIN) {
+            char msg[32];
+            int bytes_read = read(priv->notify.service, msg, sizeof(msg));
+            sigs++;
+            driverIdle();
+            continue;
         }
 
         // process data, read from serial
@@ -254,6 +295,12 @@ exit_serial_processing:
     if(restore_tio)
         tcsetattr(fd, TCSANOW, &oldtio);
 
+    if(priv->notify.service)
+        close(priv->notify.service);
+    if(priv->notify.client)
+        close(priv->notify.client);
+    priv->notify.client = priv->notify.service = 0;
+
     priv->state = ChannelError;
     return nullptr;
 }
@@ -262,13 +309,26 @@ void LssPosixChannel::update() {
     // now in update we just check for notifications we need to process on the main thread
 }
 
+void LssPosixChannel::driverSignal()
+{
+    // we send a simple character to awaken the processing thread
+    write(priv->notify.client, "*", 1);
+}
+
+auto __lasttx = millis();
 void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
     if(priv->state >= ChannelIdle) {
         if(count<0)
             count = strlen(pkt_bytes);
-        IFLOG(printf("=>%s", pkt_bytes));
+        auto now = millis();
+        auto tt = now - __lasttx;
+        __lasttx = now;
+        IFLOG(printf("%lld=>%s", tt, pkt_bytes));
         bytes_sent += count;
         write(priv->fd, pkt_bytes, count);
+#ifdef LOG_ACTIONS
+        printf("=> %s\n", pkt_bytes);
+#endif
     }
 }
 

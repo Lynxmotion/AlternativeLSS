@@ -315,7 +315,7 @@ char* LynxPacket::serialize(char* out) const
 }
 
 LynxPacket::LynxPacket(const char* pkt)
-  : id(0), command(LssInvalid), hasValue(false), value(0)
+  : id(0), microstamp(0), command(LssInvalid), modifiers(0), hasValue(false), value(0)
 {
   parse(pkt);
 }

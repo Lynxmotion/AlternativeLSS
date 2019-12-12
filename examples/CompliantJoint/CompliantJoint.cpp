@@ -6,7 +6,7 @@
 
 
 CompliantJoint::CompliantJoint(short joint_lssId, std::string _name)
-    : joint(joint_lssId), name(_name), state(Limp), stateChanged(0), current(0), currentLimit(170), cpr(0), cpr_changed(false) //, targetUpdated(false)
+    : joint(joint_lssId), name(_name), state(ComplianceLimp), stateChanged(0), current(0), currentLimit(170), cpr(0), cpr_changed(false) //, targetUpdated(false)
 {
     //fudge.filter(2);
 }
@@ -88,6 +88,7 @@ void CompliantJoint::update(unsigned long tsnow)
         switch(state) {
             case Holding:
                 // check if we are over current limit
+                mmd.target(800);
                 CPR(3);
                 if(limit) {
                     if(pos_polarity)
@@ -98,6 +99,7 @@ void CompliantJoint::update(unsigned long tsnow)
                 break;
 
             case Moving:
+                mmd.target(1023);
                 CPR(3);
                 //if(delta.spread()<2 && delta.average()==0 && !limit)
                 if(idle)
@@ -109,6 +111,7 @@ void CompliantJoint::update(unsigned long tsnow)
             case NegativeCompliance:
             case PositiveCompliance:
                 CPR(1);
+                mmd.target(255);
 
                 fudge = clamp(current.current().value() / 23, 0, 50);
                 w = (state == NegativeCompliance)

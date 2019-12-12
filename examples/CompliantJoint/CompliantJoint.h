@@ -151,8 +151,11 @@ public:
     inline CT& target() { return _target; }
     inline const CT& target() const { return _target; }
     void target(T v) {
-        _target = ::clamp(v, _min, _max);
-        _targetChanged = true;
+        auto t = ::clamp(v, _min, _max);
+        if(t != _target) {
+            _targetChanged = true;
+            _target = t;
+        }
     }
 
     inline T delta() const { return (T)_current - (T)_target; }
@@ -258,6 +261,8 @@ public:
     inline bool isLimp() const { return state == Limp; }
 
     CompliantJoint& moveTo(int _position, bool _transition=true);
+
+    Parameter<int> mmd;                  // in mA
 
     inline void CPR(int _cpr) {
         if(cpr != _cpr) {

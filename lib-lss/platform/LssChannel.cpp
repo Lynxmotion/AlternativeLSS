@@ -83,9 +83,17 @@ LssTransaction::Promise LssChannelBase::send(std::initializer_list<LynxPacket> p
     pthread_mutex_lock(&txlock);
     transactions.emplace_back(txn_next++, packets);
     auto& promise = transactions.back().promise;
+    bool sendSignal = transactions.size() ==1;
     pthread_mutex_unlock(&txlock);
+    if(sendSignal)
+        driverSignal();
     return promise;
 }
+
+void LssChannelBase::driverSignal()
+{
+}
+
 
 #if 0
 bool LssChannelBase::waitFor(const AsyncToken& token)
@@ -127,8 +135,9 @@ void LssChannelBase::completeTransaction()
 void LssChannelBase::driverIdle()
 {
     if(!transactions.empty()) {
+        auto now = micros();
         auto &current = transactions.front();
-        if(current.expired()) {
+        if(current.expired(now)) {
             // this transaction has waited too long
             current.expire();
             completeTransaction();
@@ -140,7 +149,6 @@ void LssChannelBase::driverIdle()
         {
             p = current.next();
             if(p.id) {
-                p.microstamp = micros();
                 LssChannelBase::transmit(p);
             }
         } while (p.id && (p.command & LssQuery)==0);
@@ -171,7 +179,8 @@ void LssChannelBase::driverDispatch(LynxPacket& p) {
                 }
             }
 #endif
-        }
+        } else
+            driverIdle();
     }
 }
 
