@@ -179,8 +179,8 @@ void LssChannelBase::driverDispatch(LynxPacket& p) {
                 }
             }
 #endif
-        } else
-            driverIdle();
+        }
+        driverIdle();
     }
 }
 

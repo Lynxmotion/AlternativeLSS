@@ -33,7 +33,6 @@ class posix_serial_private {
 public:
     // processing loop variables
     int fd;
-    int sideband;
     pthread_t loop;
     ChannelState state; // current loop task/state
 

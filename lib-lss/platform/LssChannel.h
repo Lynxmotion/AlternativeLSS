@@ -9,6 +9,14 @@
 
 class LynxServo;
 
+enum ChannelState {
+    ChannelStopped,
+    ChannelError,
+    ChannelStarting,
+    ChannelStopping,
+    ChannelIdle,
+    ChannelProcessing
+};
 
 
 class LssChannelBase {

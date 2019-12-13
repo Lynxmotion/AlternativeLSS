@@ -4,14 +4,6 @@
 
 class posix_serial_private;
 
-enum ChannelState {
-    ChannelStopped,
-    ChannelError,
-    ChannelStarting,
-    ChannelStopping,
-    ChannelIdle,
-    ChannelProcessing
-};
 
 class LssPosixChannel : public LssChannelBase {
 public: // todo: should be private
