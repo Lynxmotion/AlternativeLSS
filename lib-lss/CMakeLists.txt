@@ -14,6 +14,10 @@ set(SOURCE_FILES
         platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
 )
 
+if(HAS_LIBFTDI)
+    set(SOURCE_FILES ${SOURCE_FILES} platform/libftdi/LssFtdiChannel.h platform/libftdi/LssFtdiChannel.cpp)
+endif()
+
 
 # we first add our intermediate object library
 # which will them be linked into an archive and a shared library

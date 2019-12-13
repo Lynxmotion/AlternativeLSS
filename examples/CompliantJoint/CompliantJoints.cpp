@@ -1,5 +1,5 @@
-#include <platform/posix/LssPosixChannel.h>
 #include <LssCommunication.h>
+#include <LssChannel.h>
 #include <LssCommon.h>
 
 #include <cstdio>
@@ -17,7 +17,7 @@
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
-LssPosixChannel channel;
+LynxChannel channel;
 
 
 CompliantJoint joints[] = {
