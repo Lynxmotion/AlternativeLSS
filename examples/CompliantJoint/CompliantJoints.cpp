@@ -15,6 +15,9 @@
 // allow the use of the Exponential Moving Average Filter
 #define USE_FPC
 
+// the default LED color when joint is not in compliance mode
+const short  LssLedDefault = LssLedOff;
+
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
 LssChannel channel;
@@ -143,7 +146,7 @@ int main() {
 #ifdef USE_FPC
     channel.transmit(LynxPacket(254, LssFilterPoleCount, 3));
 #endif
-    channel.transmit(LynxPacket(254, LssLEDColor, 3));
+    channel.transmit(LynxPacket(254, LssLEDColor, LssLedDefault));
     channel.transmit(LynxPacket(254, LssAngularStiffness, -3));
     channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, -3));
     channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, 8));
@@ -241,7 +244,7 @@ int main() {
                                 break;
 
                             default:
-                                updates.emplace_back(j.joint, LssLEDColor, LssBlue);
+                                updates.emplace_back(j.joint, LssLEDColor, LssLedDefault);
                                 break;
                         }
 
