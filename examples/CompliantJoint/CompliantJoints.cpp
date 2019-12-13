@@ -128,6 +128,8 @@ int main() {
     int success = 0, failed = 0, consecutiveFailures=0;
     bool ready = true;
 
+    std::vector< Aggregate<unsigned long> > pkttimings;
+
     // put your setup code here, to run once:
     channel.begin("/dev/ttyUSB0", 115200);
 
@@ -190,13 +192,18 @@ int main() {
         }
 
         channel.send(queries.begin(), queries.end())
-                .then( [&success, &ready, &_next_update, &consecutiveFailures, qstart](const LssTransaction& tx) {
+                .then( [&success, &ready, &_next_update, &consecutiveFailures, qstart, &pkttimings](const LssTransaction& tx) {
                     auto packets = tx.packets();
                     auto now = micros();
                     qtime.add(now - qstart);
                     auto ustart = now;
 
+                    if(pkttimings.size() < packets.size())
+                        pkttimings.resize(packets.size());
+
                     // update joint measurements
+                    int n=0;
+                    unsigned long long ts = 0;
                     for(auto p: packets) {
                         if(p.command & LssQuery && p.hasValue) {
                             for(auto& j: joints) {
@@ -209,6 +216,9 @@ int main() {
                                 }
                             }
                         }
+
+                        if(ts == 0) ts = p.microstamp;
+                        pkttimings[n++].add(p.microstamp - ts);
                     }
 
                     // update joints
@@ -288,7 +298,7 @@ int main() {
                     channel.send(updates.begin(), updates.end()).regardless([&ready, &success, &_next_update, &consecutiveFailures, ustart](const LssTransaction& tx2) {
                         utime.add( micros() - ustart);
                         ready = true;
-                        _next_update = micros() + 20000;
+                        _next_update = micros() + 10000;
                         success++;
                         consecutiveFailures=0;
                     });
@@ -322,6 +332,13 @@ int main() {
         printf("   %d failures\n", failed);
     printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
             channel.bytes_sent, channel.bytes_sent/30.0*9, channel.bytes_received, channel.bytes_received/30.0*9);
+
+    int n=0;
+    printf("packet timings:\n");
+    for(auto& m: pkttimings) {
+        printf("  "
+               "%d: %-4ld | %-4ld | %4ld\n", n++, m.minimum, m.average(), m.maximum);
+    }
 
 #if 0
     // print some detailed stats
