@@ -54,39 +54,116 @@ bool LssTransaction::expired(unsigned long long tsnow) const {
 
 void LssTransaction::expire() {
     state = Expired;
+    //Qwait *= 1.025;
+    //printf("Q now %ld\n", Qwait);
 }
 
+long early_xmissions = 0;
+long nots = 0;
+
+unsigned long LssTransaction::Qwait = 1800;
 
 const LynxPacket LssTransaction::next()
 {
+    unsigned long long now = micros();
+    LynxPacket p;
+
     if(state < Completed) {
         if (txt == 0) {
             // first transmission
-            txt = micros();
+            txt = now;
             expireAt = txt + expireInterval;
         }
 
+#if 1
         // we can transmit a packet as long as any packet we are waiting to receive has the same bus ID
         if (_tx != _packets.end() && _tx->id == _rx->id) {
             LynxPacket p = *_tx;
             _tx++;
 
+            // advance over any non-query packets since we wont receive anything back from them
             while (_rx != _packets.end() && _rx < _tx && (_rx->command & LssQuery) == 0)
                 _rx++;
 
             checkCompleteStatus();
+
+            // store timestamp of transmission and schedule next transmission
+            p.microstamp = now;
+            nextQ = (p.command & LssQuery)
+                ? now + 1600         // query packet: wait x microseconds before sending next command
+                : now;              // action/config packet: next packet can be sent immediately
             return p;
         }
+#else
+        if(_tx != _packets.end()) {
+            bool is_query = (_tx->command & LssQuery) > 0;
+
+            //  always transmit an action
+            if (!is_query) {
+                p = *_tx;
+                _tx++;
+            } else if(now > nextQ || _rx == _tx) {
+                // transmit a query if possible, we may send before collecting a response from last one
+                // as long as we give enough time for servo to finish transmitting on the bus.
+                if(_rx < _tx) {
+                    if(ttfr ==0)
+                        return p;   // abort, we must at least have received 1 response before blasting queries
+                    early_xmissions++;
+                    if((early_xmissions % 100)==0)
+                        printf("sent %ld earlies\n", early_xmissions);
+                }
+                p = *_tx;
+                _tx++;
+            } else {
+                nots++;
+            }
+
+            if(p.id) {
+                // store timestamp of transmission and schedule next transmission
+                p.microstamp = now;
+
+                if(_tx == _packets.end()) {
+                    // no more packets to send
+                    tt_tx_c = now - txt;
+                    nextQ = now;
+                } else {
+                    bool next_is_query = (_tx->command & LssQuery) > 0;
+                    bool next_is_same_dev = _tx->id == p.id;
+
+                    // we must add a Qwait if next packet is a query and not the same servo
+                    nextQ = (is_query && next_is_query && !next_is_same_dev)
+                            ? now + Qwait         // query packet: wait x microseconds before sending next command
+                            : now;              // action/config packet: next packet can be sent immediately
+                }
+            }
+
+        }
+
+        // advance over any non-query packets since we wont receive anything back from them
+        while (_rx != _packets.end() && _rx < _tx && (_rx->command & LssQuery) == 0)
+            _rx++;
+
+        checkCompleteStatus();
+
+#endif
     }
-    return LynxPacket();
+    return p;
 }
 
 void LssTransaction::dispatch(const LynxPacket& p)
 {
-    if(_rx->id == p.id && _rx->command==p.command) {
+    if(_rx!=_packets.end() && _rx->id == p.id && _rx->command==p.command) {
+        auto now = micros();
         _rx->set(p.value);
+        _rx->microstamp = now;
         _rx++;
 
+        expireAt = now + expireInterval;
+
+        if(ttfr ==0)
+            ttfr = now;
+
+        // advance over any non-query packets
         while(_rx!=_packets.end() && (_rx->command & LssQuery)==0)
             _rx++;
 

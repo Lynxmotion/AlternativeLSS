@@ -42,20 +42,21 @@ public:
     unsigned long timestamp;    // millis when first packet was sent
     unsigned long expireAt;     // timestamp when the read request will be considered expired
     unsigned long long nextQ;       // micros when next query transmission can be sent (set by last Q to give time for servo to reply without collision)
+    static unsigned long Qwait;
     State state;
 
     // statistics
-    unsigned long txt, ttfr, ttc;
+    unsigned long txt, ttfr, ttc, tt_tx_c;
 
     // this promise will be called when the transaction completes or expires
     LssPromise<const LssTransaction> promise;
 
     // construct a new transaction with the given packets to  transmit
-    LssTransaction(unsigned long _txn, std::initializer_list<LynxPacket> packets, unsigned long _expire_uSec=60000);
+    LssTransaction(unsigned long _txn, std::initializer_list<LynxPacket> packets, unsigned long _expire_uSec=10000);
 
     template<class It>
-    LssTransaction(unsigned long _txn, It first, It last, unsigned long _expire_uSec=120000)
-        : txn(_txn), timestamp(micros()), expireAt(0), nextQ(0), expireInterval(_expire_uSec), txt(0), ttfr(0), ttc(0), state(Pending),
+    LssTransaction(unsigned long _txn, It first, It last, unsigned long _expire_uSec=10000)
+        : txn(_txn), timestamp(micros()), expireAt(0), nextQ(0), expireInterval(_expire_uSec), txt(0), ttfr(0), ttc(0), tt_tx_c(0), state(Pending),
         _packets(first, last)
     {
         //std::sort(_packets.begin(), _packets.end(), _packet_order_by_busid::sorter);
