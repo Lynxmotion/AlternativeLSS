@@ -4,13 +4,12 @@ set(SOURCE_FILES
         aggregate.h MovingAverage.h
         MaskSet.h
         AsyncToken.h
-        LssCommon.h LssCommon.cpp
-        LssChannel.h
         LssPromise.h
+        LssCommon.h LssCommon.cpp
         LssTransaction.h LssTransaction.cpp
         LssCommunication.h LssCommunication.cpp
         #LynxmotionLSS.h LynxmotionLSS.cpp
-        platform/LssChannel.h platform/LssChannel.cpp
+        LssChannel.h LssChannel.cpp
         platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
 )
 

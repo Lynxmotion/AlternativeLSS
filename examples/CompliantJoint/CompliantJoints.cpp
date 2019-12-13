@@ -333,8 +333,10 @@ int main() {
     printf("sent %d messages (%4.2f msgs/sec)\n", success, success/30.0);
     if(failed>0)
         printf("   %d failures\n", failed);
+    LssChannelDriver::Statistics statistics = channel.driver().statistics;
     printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
-            channel.bytes_sent, channel.bytes_sent/30.0*9, channel.bytes_received, channel.bytes_received/30.0*9);
+            statistics.bytes_sent, statistics.bytes_sent/30.0*9,
+            statistics.bytes_received, statistics.bytes_received/30.0*9);
 
     int n=0;
     printf("packet timings:\n");

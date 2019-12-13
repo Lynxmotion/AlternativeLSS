@@ -1,5 +1,5 @@
 #include "LssPosixChannel.h"
-#include "../../LssServo.h"
+#include "../../LssChannel.h"
 
 #include <termios.h>
 #include <stdio.h>
@@ -53,24 +53,34 @@ public:
 };
 
 
-LssPosixChannel::LssPosixChannel(const char* channel_name)
-        : LssChannelBase(channel_name), priv(nullptr), devname(nullptr), baudrate(115200), bytes_sent(0), bytes_received(0)
+LssPosixChannel::LssPosixChannel(LssChannel* channel)
+        : LssChannelDriver(channel), priv(nullptr), devname(nullptr), baudrate(115200)
 {}
 
 LssPosixChannel::~LssPosixChannel() {
-    free();
+    if(priv != nullptr && priv->state <= ChannelStarting) {
+
+        // stop and join the processing loop
+        void* rv = nullptr;
+        pthread_cancel(priv->loop);
+        pthread_join(priv->loop, &rv);
+
+        // remove the private block
+        delete priv;
+        priv = nullptr;
+    }
 }
 
-bool LssPosixChannel::begin(const char* _devname, int _baudrate)
+ChannelDriverError LssPosixChannel::begin(const char* _devname, int _baudrate)
 {
-    free();     // close and will reopen
+    if(priv !=nullptr)
+        return DriverAlreadyInitialized;
 
     if(devname) ::free((void*)devname);
     devname = strdup(_devname);
     baudrate = _baudrate;
 
-    bytes_sent = 0;
-    bytes_received = 0;
+    statistics = Statistics();
 
     priv = new posix_serial_private();
 
@@ -94,27 +104,9 @@ bool LssPosixChannel::begin(const char* _devname, int _baudrate)
         pthread_join(priv->loop, &rv);
         delete priv;
         priv = nullptr;
-        return false;
+        return DriverOpenFailed;
     }
-    return true;
-}
-
-void LssPosixChannel::free() {
-    // todo: rename this to close()
-    if(priv != nullptr && priv->state <= ChannelStarting) {
-
-        // stop and join the processing loop
-        void* rv = nullptr;
-        pthread_cancel(priv->loop);
-        pthread_join(priv->loop, &rv);
-
-        // remove the private block
-        delete priv;
-        priv = nullptr;
-    }
-}
-
-void processSignal(int s) {
+    return DriverSuccess;
 }
 
 void* LssPosixChannel::s_run(void* inst) {
@@ -225,7 +217,7 @@ reopen:
             goto exit_serial_processing;
         } else if(res == 0) {
             // check for new transaction to send
-            driverIdle();
+            channel->driverIdle();
             continue;
         }
 
@@ -233,14 +225,14 @@ reopen:
         if(ufds[0].revents & (POLLNVAL|POLLERR|POLLHUP)) {
             priv->state = ChannelError;
             // port is not longer available
-            close(fd);
+            ::close(fd);
             priv->fd = fd = 0;
             goto reopen;
         } else if(ufds[1].revents & POLLIN) {
             char msg[32];
             int bytes_read = read(priv->notify.service, msg, sizeof(msg));
             sigs++;
-            driverIdle();
+            channel->driverIdle();
             continue;
         }
 
@@ -252,7 +244,7 @@ reopen:
         char *pb = buffer;
         pbuffer += bytes_read;
         *pbuffer = 0;  // null terminate
-        bytes_received += bytes_read;
+        statistics.bytes_received += bytes_read;
 
         char* p = pb;
         while(*p) {
@@ -264,7 +256,7 @@ reopen:
 
                 // dispatch packet to destination servo (if we have it)
                 LynxPacket packet(pb + 1);
-                driverDispatch(packet);
+                channel->driverDispatch(packet);
                 *p = 0;
                 pb = p + 1;
             }
@@ -285,7 +277,7 @@ reopen:
 exit_serial_processing:
     priv->state = ChannelStopping;
     if(fd >0) {
-        close(fd);
+        ::close(fd);
         fd = 0;
     }
     priv->fd = 0;
@@ -295,26 +287,38 @@ exit_serial_processing:
         tcsetattr(fd, TCSANOW, &oldtio);
 
     if(priv->notify.service)
-        close(priv->notify.service);
+        ::close(priv->notify.service);
     if(priv->notify.client)
-        close(priv->notify.client);
+        ::close(priv->notify.client);
     priv->notify.client = priv->notify.service = 0;
 
     priv->state = ChannelError;
     return nullptr;
 }
 
-void LssPosixChannel::update() {
-    // now in update we just check for notifications we need to process on the main thread
-}
+auto __lasttx = millis();
 
-void LssPosixChannel::driverSignal()
+intptr_t LssPosixChannel::signal(ChannelDriverSignal signal, unsigned long a, const void* ptr)
 {
     // we send a simple character to awaken the processing thread
-    write(priv->notify.client, "*", 1);
+    switch(signal) {
+        case OpenSignal:
+            begin( (const char*)ptr, a);
+            break;
+
+        case TransactionSignal:
+        case DataSignal:
+            write(priv->notify.client, "*", 1);
+            break;
+
+        case TransmitSignal:
+            if(ptr && a>0)
+                transmit((const char*)ptr, a);
+            break;
+    }
+    return 0;
 }
 
-auto __lasttx = millis();
 void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
     if(priv->state >= ChannelIdle) {
         if(count<0)
@@ -323,7 +327,8 @@ void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
         auto tt = now - __lasttx;
         __lasttx = now;
         IFLOG(printf("%lld=>%s", tt, pkt_bytes));
-        bytes_sent += count;
+
+        statistics.bytes_sent += count;
         write(priv->fd, pkt_bytes, count);
 #ifdef LOG_ACTIONS
         printf("=> %s\n", pkt_bytes);

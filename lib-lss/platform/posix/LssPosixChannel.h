@@ -1,32 +1,26 @@
 #pragma once
 
-#include "../LssChannel.h"
+#include "../LssChannelDriver.h"
 
 class posix_serial_private;
 
 
-class LssPosixChannel : public LssChannelBase {
+class LssPosixChannel : public LssChannelDriver {
 public: // todo: should be private
     const char* devname;
     int baudrate;
 
     posix_serial_private* priv;
 
-    unsigned long bytes_sent, bytes_received;
-
 public:
-    explicit LssPosixChannel(const char* channel_name=nullptr);
-    ~LssPosixChannel() override;
+    explicit LssPosixChannel(LssChannel* channel);
+    ~LssPosixChannel();
 
-    void free() override;
+    intptr_t signal(ChannelDriverSignal signal, unsigned long a, const void* ptr) override;
 
-    bool begin(const char* devname, int baudrate);
+    ChannelDriverError begin(const char* devname, int baudrate);
 
-    void update() override;
-
-    using LssChannelBase::transmit;
-    void transmit(const char* pkt_bytes, int count=-1) override;
-    void driverSignal() override;
+    void transmit(const char* pkt_bytes, int count=-1);
 
 private:
     void* run();

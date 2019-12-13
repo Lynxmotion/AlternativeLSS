@@ -9,6 +9,9 @@
 #include <LssCommon.h>
 #include <MovingAverage.h>
 
+#include <limits>
+#include <functional>
+
 //#include <Eigen/Dense>
 #include <map>
 

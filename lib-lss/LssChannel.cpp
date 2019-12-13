@@ -1,68 +1,26 @@
 
 #include "LssChannel.h"
-#include "../LssServo.h"
 
 //void * operator new (size_t size, void * ptr) { return ptr; }
 
 
-LssChannelBase::LssChannelBase(const char* channel_name)
-        : name(channel_name), timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(unresponsive_request_limit), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
-          size(0), count(0), servos(NULL),
+LssChannel::LssChannel()
+        : timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(unresponsive_request_limit), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
           txn_current(1), txn_next(1)
 {
     pthread_mutex_init(&txlock, NULL);
+    _driver = new LssPosixChannel(this);
 }
 
-LssChannelBase::~LssChannelBase()
+LssChannel::~LssChannel()
 {
-    free();
+    close();
     pthread_mutex_destroy(&txlock);
 }
 
-LssChannelBase& LssChannelBase::add(LynxServo& servo)
-{
-    if(count >= size)
-        alloc(size + 5);
-    servo.channel = (LssChannel*)this;
-    servos[count++] = &servo;
-    return *this;
-}
-
-bool LssChannelBase::contains(short servoId) const
-{
-    for(int i=0; i<count; i++)
-        if(servos[i]->id == servoId) return true;
-    return false;
-}
-
-LynxServo& LssChannelBase::operator[](short servoId) {
-    for(int i=0; i<count; i++)
-        if(servos[i]->id == servoId)
-            return *servos[i];
-    // we halt here because there is no appropriate response for a failed lookup! (returning a ref)
-#if defined(LSS_LOGGING)
-    LSS_LOGGING.print("LssChannelBase::operator[");
-  LSS_LOGGING.print(servoId);
-  LSS_LOGGING.print("] called on non-existent servo");
-#endif
-    while(1);
-}
-
-const LynxServo& LssChannelBase::operator[](short servoId) const {
-    for(int i=0; i<count; i++)
-        if(servos[i]->id == servoId)
-            return *servos[i];
-    // we halt here because there is no appropriate response for a failed lookup! (returning a ref)
-#if defined(LSS_LOGGING)
-    LSS_LOGGING.print("LssChannelBase::operator[");
-  LSS_LOGGING.print(servoId);
-  LSS_LOGGING.print("] called on non-existent servo");
-#endif
-    while(1);
-}
-
 #if 0
-AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
+// todo make this take a collection of servos
+AsyncToken LssChannel::ReadAsyncAll(LssCommands commands)
 {
     if(count>0) {
         AsyncToken rt;
@@ -77,8 +35,16 @@ AsyncToken LssChannelBase::ReadAsyncAll(LssCommands commands)
 }
 #endif
 
+ChannelDriverError LssChannel::begin(const char* devname, int baudrate)
+{
+    _driver = new LssPosixChannel(this);
+    ChannelDriverError rv = (ChannelDriverError)(_driver->signal(OpenSignal, baudrate, devname));
+    if( rv != DriverSuccess)
+        delete _driver;
+    return rv;
+}
 
-LssTransaction::Promise LssChannelBase::send(std::initializer_list<LynxPacket> packets)
+LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packets)
 {
     pthread_mutex_lock(&txlock);
     transactions.emplace_back(txn_next++, packets);
@@ -86,17 +52,13 @@ LssTransaction::Promise LssChannelBase::send(std::initializer_list<LynxPacket> p
     bool sendSignal = transactions.size() ==1;
     pthread_mutex_unlock(&txlock);
     if(sendSignal)
-        driverSignal();
+        _driver->signal(TransactionSignal, 0, nullptr);
     return promise;
-}
-
-void LssChannelBase::driverSignal()
-{
 }
 
 
 #if 0
-bool LssChannelBase::waitFor(const AsyncToken& token)
+bool LssChannel::waitFor(const AsyncToken& token)
 {
     unsigned long timeout = micros() + timeout_usec;
     unsigned long _txn = txn_current;
@@ -113,7 +75,7 @@ bool LssChannelBase::waitFor(const AsyncToken& token)
 }
 #endif
 
-void LssChannelBase::completeTransaction()
+void LssChannel::completeTransaction()
 {
     auto &current = transactions.front();
     if(current.state == LssTransaction::Completed)
@@ -132,7 +94,7 @@ void LssChannelBase::completeTransaction()
 
 }
 
-void LssChannelBase::driverIdle()
+void LssChannel::driverIdle()
 {
     if(!transactions.empty()) {
         auto now = micros();
@@ -149,7 +111,7 @@ void LssChannelBase::driverIdle()
         {
             p = current.next();
             if(p.id) {
-                LssChannelBase::transmit(p);
+                LssChannel::transmit(p);
             }
         } while (p.id && (p.command & LssQuery)==0);
 
@@ -158,7 +120,7 @@ void LssChannelBase::driverIdle()
     }
 }
 
-void LssChannelBase::driverDispatch(LynxPacket& p) {
+void LssChannel::driverDispatch(LynxPacket& p) {
     p.microstamp = micros();
     if (!transactions.empty()) {
         auto &current = transactions.front();
@@ -184,7 +146,7 @@ void LssChannelBase::driverDispatch(LynxPacket& p) {
     }
 }
 
-void LssChannelBase::transmit(const LynxPacket &p)
+void LssChannel::transmit(const LynxPacket &p)
 {
     char buf[64];
     char* pend = buf;
@@ -198,13 +160,14 @@ void LssChannelBase::transmit(const LynxPacket &p)
         *pend++ = '\r';
         *pend=0;
 
-        // transmit to LSS bus
         // p.microstamp = micros(); //todo: how can we have this set in the const transmit call?
-        transmit(pbegin, pend - pbegin);
+
+        // transmit to LSS bus
+        _driver->signal(TransmitSignal, pend - pbegin, pbegin);
     }
 }
 
-short LssChannelBase::scan(short beginId, short endId)
+short LssChannel::scan(short beginId, short endId)
 {
     // array to keep track of discovered devices
     short N = 0;
@@ -254,32 +217,7 @@ short LssChannelBase::scan(short beginId, short endId)
     return N;
 }
 
-void LssChannelBase::alloc(short n)
-{
-    if (servos != NULL) {
-        servos = (LynxServo**)realloc(servos, n*sizeof(LynxServo*));
-    }
-    else {
-        servos = (LynxServo**)calloc(n, sizeof(LynxServo*));
-        count = 0;
-    }
-    size = n;
-}
-
-void LssChannelBase::free()
-{
-    if(servos) {
-        for (int i = 0; i < count; i++) {
-            if (servos[i] && servos[i]->channel_owned)
-                delete servos[i];
-        }
-        ::free(servos);
-        servos = NULL;
-    }
-    count=0;
-}
-
-void LssChannelBase::create(const short* ids, short N)
+void LssChannel::create(const short* ids, short N)
 {
     short* shadowed_ids = (short*)calloc(N, sizeof(short));
     short shadowed_N = N;
