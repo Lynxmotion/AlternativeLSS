@@ -2,19 +2,19 @@
 
 #include "../LssChannelDriver.h"
 
-class posix_serial_private;
+class ftdi_serial_private;
 
 
-class LssPosixChannel : public LssChannelDriver {
+class LssFtdiChannel : public LssChannelDriver {
 public: // todo: should be private
     const char* devname;
     int baudrate;
 
-    posix_serial_private* priv;
+    ftdi_serial_private* priv;
 
 public:
-    explicit LssPosixChannel(LssChannel* channel);
-    ~LssPosixChannel();
+    explicit LssFtdiChannel(LssChannel* channel);
+    ~LssFtdiChannel();
 
     intptr_t signal(ChannelDriverSignal signal, unsigned long a, const void* ptr) override;
 

@@ -1,5 +1,5 @@
-#include "LssPosixChannel.h"
-#include "../../LssChannel.h"
+#include "LssFtdiChannel.h"
+#include "../../LssServo.h"
 
 #include <termios.h>
 #include <stdio.h>
@@ -17,6 +17,8 @@
 #include <poll.h>
 #include <asm/ioctls.h>
 
+#include <ftdi.h>
+
 #define BAUDRATE B115200
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
@@ -29,10 +31,15 @@
 
 //#define LOG_ACTIONS
 
-class posix_serial_private {
+class ftdi_serial_private {
 public:
+    int vid;        // typically 0x403
+    int pid;
+    int baudrate;
+    ftdi_interface interface;
+
     // processing loop variables
-    int fd;
+    struct ftdi_context *ftdi;
     pthread_t loop;
     ChannelState state; // current loop task/state
 
@@ -44,8 +51,8 @@ public:
         };
     } notify;
 
-    inline posix_serial_private()
-        : fd(0), loop(0), state(ChannelStopped)
+    inline ftdi_serial_private()
+        : vid(0x403), pid(0x6001), baudrate(115200), interface(INTERFACE_ANY), ftdi(nullptr), loop(0), state(ChannelStopped)
     {
         notify.client = 0;
         notify.service = 0;
@@ -53,11 +60,12 @@ public:
 };
 
 
-LssPosixChannel::LssPosixChannel(LssChannel* channel)
+LssFtdiChannel::LssFtdiChannel(LssChannel* channel)
         : LssChannelDriver(channel), priv(nullptr), devname(nullptr), baudrate(115200)
 {}
 
-LssPosixChannel::~LssPosixChannel() {
+LssFtdiChannel::~LssFtdiChannel() {
+    // todo: rename this to close()
     if(priv != nullptr && priv->state <= ChannelStarting) {
 
         // stop and join the processing loop
@@ -71,7 +79,7 @@ LssPosixChannel::~LssPosixChannel() {
     }
 }
 
-ChannelDriverError LssPosixChannel::begin(const char* _devname, int _baudrate)
+ChannelDriverError LssFtdiChannel::begin(const char* _devname, int _baudrate)
 {
     if(priv !=nullptr)
         return DriverAlreadyInitialized;
@@ -82,7 +90,7 @@ ChannelDriverError LssPosixChannel::begin(const char* _devname, int _baudrate)
 
     statistics = Statistics();
 
-    priv = new posix_serial_private();
+    priv = new ftdi_serial_private();
 
     // start the processing loop
     priv->state = ChannelStarting;
@@ -109,11 +117,14 @@ ChannelDriverError LssPosixChannel::begin(const char* _devname, int _baudrate)
     return DriverSuccess;
 }
 
-void* LssPosixChannel::s_run(void* inst) {
-    return ((LssPosixChannel*)inst)->run();
+void processSignal(int s) {
 }
 
-void* LssPosixChannel::run()
+void* LssFtdiChannel::s_run(void* inst) {
+    return ((LssFtdiChannel*)inst)->run();
+}
+
+void* LssFtdiChannel::run()
 {
     if(priv == nullptr) return nullptr;
     priv->state = ChannelStarting;
@@ -139,16 +150,109 @@ void* LssPosixChannel::run()
     bool restore_tio = false;
 
     // todo: just move this into the processling loop
-    char buffer[256];
-    char* pbuffer = buffer;
+    unsigned char buffer[256];
+    unsigned char* pbuffer = buffer;
 
     //LssTransaction* ctx = nullptr;
 
 reopen:
     /* open the device to be non-blocking (read will return immediately) */
-    fd = ::open(devname, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
-    if (fd <0) {
-        perror(devname);
+    priv->ftdi = ftdi_new();
+
+    if(priv->ftdi !=NULL) {
+        if (!priv->vid && !priv->pid && (priv->interface == INTERFACE_ANY))
+        {
+            ftdi_set_interface(priv->ftdi, INTERFACE_ANY);
+            struct ftdi_device_list *devlist;
+            int rv;
+            if ((rv = ftdi_usb_find_all(priv->ftdi, &devlist, 0, 0)) < 0)
+            {
+                fprintf(stderr, "No FTDI with default VID/PID found\n");
+                goto exit_serial_processing;
+            }
+            if (rv == 1)
+            {
+                res = ftdi_usb_open_dev(priv->ftdi,  devlist[0].dev);
+                if (res<0)
+                {
+                    fprintf(stderr, "Unable to open device %d: (%s)",
+                            res, ftdi_get_error_string(priv->ftdi));
+                }
+            }
+            ftdi_list_free(&devlist);
+            if (rv > 1)
+            {
+                fprintf(stderr, "%d Devices found, please select Device with VID/PID\n", res);
+                /* TODO: List Devices*/
+                goto exit_serial_processing;
+            }
+            if (rv == 0)
+            {
+                fprintf(stderr, "No Devices found with default VID/PID\n");
+                goto exit_serial_processing;
+            }
+        }
+        else
+        {
+            // Select interface
+            ftdi_set_interface(priv->ftdi, priv->interface);
+
+            // Open device
+            res = ftdi_usb_open(priv->ftdi, priv->vid, priv->pid);
+        }
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to open ftdi device: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        // Set baudrate
+        res = ftdi_set_baudrate(priv->ftdi, priv->baudrate);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set baudrate: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        res = ftdi_set_line_property(priv->ftdi, BITS_8, STOP_BIT_1, NONE);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set line parameters: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        res = ftdi_set_latency_timer(priv->ftdi, 1);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set latency timer: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        res = ftdi_set_event_char(priv->ftdi, '\r', 1);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set event char: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        res = ftdi_write_data_set_chunksize(priv->ftdi, 4096);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set write chunk size: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+
+        res = ftdi_read_data_set_chunksize(priv->ftdi, 64);
+        if (res < 0)
+        {
+            fprintf(stderr, "unable to set read chunk size: %d (%s)\n", res, ftdi_get_error_string(priv->ftdi));
+            exit(-1);
+        }
+    }
+
+
+    if (priv->ftdi ==NULL) {
+        printf("failed to initialize ftdi driver\n");
         errors++;
         consecutive_errors++;
         if(consecutive_errors > 300)
@@ -165,73 +269,29 @@ reopen:
         goto exit_serial_processing;
     }
 
-    /* Make the file descriptor asynchronous (the manual page says only
-       O_APPEND and O_NONBLOCK, will work with F_SETFL...) */
-    //fcntl(fd, F_SETFL, FASYNC);
-
-    ioctl(fd, TIOCGSERIAL, &serial);
-    serial.flags |= ASYNC_LOW_LATENCY;
-    res = ioctl(fd, TIOCSSERIAL, &serial);
-
-    tcgetattr(fd,&oldtio); /* save current port settings */
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD; // | CRTSCTS
-    newtio.c_cflag &= ~(PARENB | PARODD); // No parity
-    newtio.c_cflag &= ~CRTSCTS; // No hardware handshake
-    newtio.c_cflag &= ~CSTOPB; // 1 stopbit
-
-    newtio.c_iflag = IGNBRK;
-    newtio.c_iflag &= ~(IXON | IXOFF | IXANY); // No software handshake
-    newtio.c_iflag = IGNPAR;
-
-    newtio.c_oflag = 0;
-    newtio.c_lflag = 0;
-    newtio.c_lflag &= ~(ICANON|ECHO); /* Clear ICANON and ECHO. */
-
-    newtio.c_cc[VMIN]=1;
-    newtio.c_cc[VTIME]=0;
-    tcflush(fd, TCIFLUSH);
-    tcsetattr(fd,TCSANOW,&newtio);
-    restore_tio = true; // remember to restore old settings
-
     priv->state = ChannelIdle;
-    priv->fd = fd;
 
-    ufds[0].fd = fd;
-    ufds[0].events = POLLIN;
-    ufds[1].fd = priv->notify.service;
-    ufds[1].events = POLLIN;
-
-    /* allow the process to receive SIGIO */
-    //fcntl(fd, F_SETOWN, getpid());
+    printf("Using FTDI channel\n");
 
     /* after receiving SIGIO, wait_flag = FALSE, input is available
        and can be read */
     while (priv->state >= ChannelIdle && consecutive_errors < 15) {
         priv->state = ChannelIdle;
 
-        int res = ppoll(ufds, 2, &time, &sigmask);
-        if(res<0) {
-            // alarm condition
-            IFLOG(perror("polling error"));
-            perror("polling error");
+        int bytes_read = ftdi_read_data(priv->ftdi, pbuffer, sizeof(buffer) - (pbuffer - buffer));
+        if(bytes_read == -666) {
+            // usb device unavailable
+            printf("usb device unavailable\n");
+            ftdi_free(priv->ftdi);
+            priv->ftdi = nullptr;
             goto exit_serial_processing;
-        } else if(res == 0) {
-            // check for new transaction to send
-            channel->driverIdle();
             continue;
-        }
-
-        // check if poll() is telling us this port is closed or missing
-        if(ufds[0].revents & (POLLNVAL|POLLERR|POLLHUP)) {
-            priv->state = ChannelError;
-            // port is not longer available
-            ::close(fd);
-            priv->fd = fd = 0;
-            goto reopen;
-        } else if(ufds[1].revents & POLLIN) {
-            char msg[32];
-            int bytes_read = read(priv->notify.service, msg, sizeof(msg));
-            sigs++;
+        } else if(bytes_read <0) {
+            // error code from usb_bulk_read
+            printf("bulk read error\n");
+            goto exit_serial_processing;
+        } else if(bytes_read ==0) {
+            // no data
             channel->driverIdle();
             continue;
         }
@@ -239,14 +299,12 @@ reopen:
         // process data, read from serial
         priv->state = ChannelProcessing;
 
-        //IFLOG(if(pbuffer > buffer)  printf("[+= %s]\n", buffer));
-        int bytes_read = read(fd, pbuffer, sizeof(buffer) - (pbuffer - buffer));
-        char *pb = buffer;
+        unsigned char *pb = buffer;
         pbuffer += bytes_read;
         *pbuffer = 0;  // null terminate
         statistics.bytes_received += bytes_read;
 
-        char* p = pb;
+        unsigned char* p = pb;
         while(*p) {
             if(*p == '*') {
                 pb = p;
@@ -255,7 +313,7 @@ reopen:
                 IFLOG(printf("<=%s\n", pb));
 
                 // dispatch packet to destination servo (if we have it)
-                LynxPacket packet(pb + 1);
+                LynxPacket packet( (const char*)(pb + 1));
                 channel->driverDispatch(packet);
                 *p = 0;
                 pb = p + 1;
@@ -272,31 +330,33 @@ reopen:
             } else
                 pbuffer = buffer;
         }
+
+        channel->driverIdle();
     }
 
 exit_serial_processing:
+    printf("exiting ftdi serial processing\n");
     priv->state = ChannelStopping;
-    if(fd >0) {
-        ::close(fd);
-        fd = 0;
+    if(priv->ftdi !=nullptr) {
+        ftdi_usb_close(priv->ftdi);
+        ftdi_free(priv->ftdi);
     }
-    priv->fd = 0;
 
     // restore old port settings
     if(restore_tio)
         tcsetattr(fd, TCSANOW, &oldtio);
 
     if(priv->notify.service)
-        ::close(priv->notify.service);
+        close(priv->notify.service);
     if(priv->notify.client)
-        ::close(priv->notify.client);
+        close(priv->notify.client);
     priv->notify.client = priv->notify.service = 0;
 
     priv->state = ChannelError;
     return nullptr;
 }
 
-intptr_t LssPosixChannel::signal(ChannelDriverSignal signal, unsigned long a, const void* ptr)
+intptr_t LssFtdiChannel::signal(ChannelDriverSignal signal, unsigned long a, const void* ptr)
 {
     // we send a simple character to awaken the processing thread
     switch(signal) {
@@ -317,14 +377,15 @@ intptr_t LssPosixChannel::signal(ChannelDriverSignal signal, unsigned long a, co
     return 0;
 }
 
-void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
+void LssFtdiChannel::transmit(const char* pkt_bytes, int count) {
     if(priv->state >= ChannelIdle) {
         if(count<0)
             count = strlen(pkt_bytes);
         IFLOG(printf("%lld=>%s", tt, pkt_bytes));
-
         statistics.bytes_sent += count;
-        write(priv->fd, pkt_bytes, count);
+        if(priv->ftdi) {
+            ftdi_write_data(priv->ftdi, (unsigned char*)pkt_bytes, count);
+        }
 #ifdef LOG_ACTIONS
         printf("=> %s\n", pkt_bytes);
 #endif
