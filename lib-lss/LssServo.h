@@ -35,7 +35,7 @@ class LynxServo {
    */
   public:
     short id;
-    LynxChannel* channel;
+    LssChannel* channel;
     
   public:
     bool channel_owned; // if true, the servo object memory is owned by the channel (ex. discovered via bus scan)

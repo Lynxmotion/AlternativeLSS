@@ -23,7 +23,7 @@ LssChannelBase& LssChannelBase::add(LynxServo& servo)
 {
     if(count >= size)
         alloc(size + 5);
-    servo.channel = (LynxChannel*)this;
+    servo.channel = (LssChannel*)this;
     servos[count++] = &servo;
     return *this;
 }

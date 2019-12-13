@@ -17,7 +17,7 @@
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
-LynxChannel channel;
+LssChannel channel;
 
 
 CompliantJoint joints[] = {

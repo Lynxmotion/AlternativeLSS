@@ -1,11 +1,11 @@
 
 #if defined(ARDUINO)
 #include "platform/arduino/LssArduinoChannel.h"
-using LynxChannel = LssArduinoChannel;
+using LssChannel = LssArduinoChannel;
 #elif defined(HAS_LIBFTDI)
 #include "platform/libftdi/LssFtdiChannel.h"
-using LynxChannel = LssFtdiChannel;
+using LssChannel = LssFtdiChannel;
 #else
 #include "platform/posix/LssPosixChannel.h"
-using LynxChannel = LssFtdiChannel;
+using LssChannel = LssFtdiChannel;
 #endif

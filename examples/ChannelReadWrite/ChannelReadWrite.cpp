@@ -1,4 +1,4 @@
-#include <platform/posix/LssPosixChannel.h>
+#include <LssChannel.h>
 #include <LssCommunication.h>
 #include <LssCommon.h>
 #include <MovingAverage.h>
@@ -15,7 +15,7 @@
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
-LssPosixChannel channel;
+LssChannel channel;
 
 short servos[] = { 17, 18, 19 };
 
