@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <climits>
 
-#include <compliance/CompliantJoint.h>
+#include <CompliantJoint.h>
 
 #if defined(ARDUINO)
 #include <Arduino.h>
@@ -307,7 +307,11 @@ void loop()
                         );
                         break;
 
-                    case CompliantJoint::ComplianceLimp:updates.emplace_back(j.joint, LssLimp | LssAction);
+                    case CompliantJoint::ComplianceLimp:
+                        updates.emplace_back(j.joint, LssLimp | LssAction);
+                        break;
+                        
+                    default:
                         break;
                 }
                 j.position.changed(false);

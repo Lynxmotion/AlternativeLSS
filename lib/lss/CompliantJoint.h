@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include "../LssCommunication.h"
-#include "../LssCommon.h"
+#include "LssCommunication.h"
+#include "LssCommon.h"
 
-#include "../analytics/MovingAverage.h"
-#include "../analytics/numerics.h"
-#include "../analytics/range.h"
+#include "analytics/MovingAverage.h"
+#include "analytics/numerics.h"
+#include "analytics/range.h"
 
 #include <limits>
 #include <functional>

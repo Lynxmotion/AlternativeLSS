@@ -14,7 +14,7 @@
 class LynxServo;
 
 #if defined(ARDUINO)
-#include "platform/arduino/LssArduinoChannel.h"
+#include "LssArduinoChannel.h"
 #else
 #include "platform/posix/LssPosixChannel.h"
 #endif

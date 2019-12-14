@@ -6,7 +6,9 @@
 #define LYNXMOTIONLSS_LSSTRANSACTION_H
 
 
-#include "MaskSet.h"
+#include "LssPromise.h"
+#include "LssCommunication.h"
+
 #include <vector>
 
 #include <algorithm>

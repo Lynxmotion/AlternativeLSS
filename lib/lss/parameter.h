@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "../analytics/numerics.h"
-#include "../analytics/range.h"
+#include "analytics/numerics.h"
+#include "analytics/range.h"
 
 template<class T, class CT=T>
 class Parameter {

@@ -1,5 +1,5 @@
 #include "LssArduinoChannel.h"
-#include "../../LssChannel.h"
+#include "LssChannel.h"
 #include "Arduino.h"
 
 LssArduinoChannel::LssArduinoChannel(LssChannel* channel)
@@ -43,7 +43,7 @@ void LssArduinoChannel::update()
                 // dispatch packet to destination servo (if we have it)
                 LynxPacket packet(&buffer[1]);
                 if(packet.id)
-                channel->driverDisplay(packet);
+                channel->driverDispatch(packet);
             }
             pbuffer = buffer; // reset buffer insert position
         } else {
@@ -64,6 +64,10 @@ intptr_t LssArduinoChannel::signal(ChannelDriverSignal signal, unsigned long a, 
             begin( (Stream*)ptr);
             break;
 
+        case UpdateSignal:
+            update();
+            break;
+            
         case TransactionSignal:
         case DataSignal:
             //write(priv->notify.client, "*", 1);
