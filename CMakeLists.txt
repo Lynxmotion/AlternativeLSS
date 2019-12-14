@@ -9,6 +9,8 @@ option(WITH_DOCS "enable doxygen for generation of code documentation" ON)
 option(SANITIZE "enable sanitize flags if available providing memory leak and other bad programmer errors" OFF)
 option(EFENCE "enable Electric Fence debugging by linking to lfence library" OFF)
 option(WITH_LIBFTDI "enable building of the libftdi user-space serial driver for LssChannel" ON)
+option(WITH_COMPLIANCE "include Compliant Joint functionality" ON)
+
 
 include(CMakeChecks.txt)
 

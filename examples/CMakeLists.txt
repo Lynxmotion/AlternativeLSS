@@ -1,5 +1,9 @@
 add_subdirectory(ChannelReadWrite)
-add_subdirectory(CompliantJoint)
+
+if(WITH_COMPLIANCE)
+    add_subdirectory(CompliantJoint)
+endif()
+
 #add_subdirectory(SimpleRead)
 #add_subdirectory(MultiRead)
 #add_subdirectory(Humanoid)

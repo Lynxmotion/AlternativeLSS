@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <climits>
 
-#include "CompliantJoint.h"
+#include <compliance/CompliantJoint.h>
 
 
 

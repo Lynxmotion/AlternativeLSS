@@ -8,7 +8,7 @@
 #include "MaskSet.h"
 
 #if defined(LSS_STATS)
-#include "aggregate.h"
+#include "analytics/aggregate.h"
 #endif
 
 

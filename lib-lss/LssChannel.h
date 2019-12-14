@@ -4,7 +4,10 @@
 #include "LssCommunication.h"
 #include "LssTransaction.h"
 #include "LssPromise.h"
-#include "aggregate.h"
+
+#if defined(LSS_STATS)
+#include "analytics/aggregate.h"
+#endif
 
 #include <list>
 

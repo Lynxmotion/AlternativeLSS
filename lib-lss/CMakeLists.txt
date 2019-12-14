@@ -1,20 +1,23 @@
 
 set(SOURCE_FILES
         LynxmotionLSS-Config.h
-        aggregate.h MovingAverage.h
         MaskSet.h
         AsyncToken.h
         LssPromise.h
         LssCommon.h LssCommon.cpp
         LssTransaction.h LssTransaction.cpp
         LssCommunication.h LssCommunication.cpp
-        #LynxmotionLSS.h LynxmotionLSS.cpp
         LssChannel.h LssChannel.cpp
         platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
+        analytics/aggregate.h analytics/MovingAverage.h analytics/numerics.h analytics/range.h
 )
 
 if(HAS_LIBFTDI)
     set(SOURCE_FILES ${SOURCE_FILES} platform/libftdi/LssFtdiChannel.h platform/libftdi/LssFtdiChannel.cpp)
+endif()
+
+if(WITH_COMPLIANCE)
+    set(SOURCE_FILES ${SOURCE_FILES} compliance/parameter.h compliance/CompliantJoint.h compliance/CompliantJoint.cpp)
 endif()
 
 

@@ -2,7 +2,7 @@
 # we first add our intermediate object library
 # which will them be linked into an archive and a shared library
 #add_library(sigint-objlib OBJECT ${SOURCE_FILES} $<TARGET_OBJECTS:sigint-matrix> $<TARGET_OBJECTS:sigint-streams> $<TARGET_OBJECTS:sigint-numerical>)
-add_executable(lss-compliantjoint CompliantJoints.cpp CompliantJoint.h CompliantJoint.cpp)
+add_executable(lss-compliantjoint CompliantJoints.cpp)
 
 # currently no dependencies
 include_directories(${LSS_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/eigen)
