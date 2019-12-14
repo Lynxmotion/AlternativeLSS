@@ -8,8 +8,10 @@
 #include "analytics/aggregate.h"
 #endif
 
-
+#ifndef BIT
+// hopefully if this is already defined it performs the same function
 #define BIT(n) (((unsigned long)1)<<n)
+#endif
 
 typedef unsigned long LssCommands;
 typedef unsigned long LssModifiers;
@@ -92,8 +94,52 @@ typedef enum {
   LssWhite   = 7
 } LssColors;
 
+class LssValue {
+public:
+    typedef enum {
+        None=0,
+        I,
+    } TypeID;
+
+public:
+    inline TypeID type() const { return _type; }
+    inline short length() const { return _length; }
+    inline short capacity() const { return _capacity; }
+
+    inline bool valid() const { return _type != None; }
+
+    inline int operator[](short idx) const {
+        switch(_type) {
+            case None: return 0;
+            case I: return (idx < _length)
+                ? (_capacity<=1) ? v.i : v.i_ptr[idx]
+                : 0;
+            default: return 0;
+        }
+    }
+
+    inline operator int() const { return operator[](0); }
+
+private:
+    TypeID _type;
+    short _length;
+    short _capacity;
+
+    union {
+        int *i_ptr;
+        int i;
+    } v;
+};
+
 
 class LynxPacket {
+public:
+    typedef enum {
+        Action,
+        Query,
+        Config
+    } Method;
+
   public:
     short id;
     unsigned long long microstamp;  // timestamp in microseconds the packet was last transmitted or received

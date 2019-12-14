@@ -50,6 +50,8 @@ public:
     };
 
 public:
+    virtual ~LssChannelDriver() {};
+
     explicit inline LssChannelDriver(LssChannel* _channel) : channel(_channel) {}
 
     ///@brief signal the driver of a new event

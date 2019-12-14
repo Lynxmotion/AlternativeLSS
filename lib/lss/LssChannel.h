@@ -15,7 +15,6 @@ class LynxServo;
 
 #if defined(ARDUINO)
 #include "platform/arduino/LssArduinoChannel.h"
-using LssChannel = LssArduinoChannel;
 #else
 #include "platform/posix/LssPosixChannel.h"
 #endif
@@ -51,7 +50,13 @@ public:
     LssChannel();
     virtual ~LssChannel();
 
+#if defined(ARDUINO)
+    // open port using Arduino stream interface
+    ChannelDriverError begin(Stream& dev, int baudrate);
+#else
+    // open port using standard linux /dev name or ftdi:<vendor>:<product>:<A,B,C,D>
     ChannelDriverError begin(const char* devname, int baudrate);
+#endif
 
     inline void close() {
         if(_driver) {

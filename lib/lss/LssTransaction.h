@@ -56,7 +56,7 @@ public:
 
     template<class It>
     LssTransaction(unsigned long _txn, It first, It last, unsigned long _expire_uSec=10000)
-        : txn(_txn), timestamp(micros()), expireAt(0), nextQ(0), expireInterval(_expire_uSec), txt(0), ttfr(0), ttc(0), tt_tx_c(0), state(Pending),
+        : txn(_txn), timestamp(micros()), expireAt(0), nextQ(0), state(Pending), txt(0), ttfr(0), ttc(0), tt_tx_c(0), expireInterval(_expire_uSec), 
         _packets(first, last)
     {
         //std::sort(_packets.begin(), _packets.end(), _packet_order_by_busid::sorter);

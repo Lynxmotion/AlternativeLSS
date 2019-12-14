@@ -5,11 +5,10 @@
 
 
 LssChannel::LssChannel()
-        : timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(unresponsive_request_limit), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
-          txn_current(1), txn_next(1)
+        : timeout_usec(TRANSACTION_TIMEOUT), unresponsive_request_limit(50), unresponsive_disable_interval(UNRESPONSIVE_DISABLE_INTERVAL),
+          txn_current(1), txn_next(1), _driver(nullptr)
 {
     pthread_mutex_init(&txlock, NULL);
-    _driver = new LssPosixChannel(this);
 }
 
 LssChannel::~LssChannel()
@@ -35,6 +34,17 @@ AsyncToken LssChannel::ReadAsyncAll(LssCommands commands)
 }
 #endif
 
+#if defined(ARDUINO)
+ChannelDriverError LssChannel::begin(Stream& dev, int baudrate)
+{
+    // open the driver channel
+    _driver = new LssArduinoChannel(this);
+    ChannelDriverError rv = (ChannelDriverError)(_driver->signal(OpenSignal, baudrate, &dev));
+    if( rv != DriverSuccess)
+        delete _driver;
+    return rv;
+}
+#else
 ChannelDriverError LssChannel::begin(const char* devname, int baudrate)
 {
     if(strncasecmp("ftdi:", devname, 5) ==0) {
@@ -55,6 +65,7 @@ ChannelDriverError LssChannel::begin(const char* devname, int baudrate)
 
     return rv;
 }
+#endif
 
 LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packets)
 {
@@ -231,9 +242,9 @@ short LssChannel::scan(short beginId, short endId)
 
 void LssChannel::create(const short* ids, short N)
 {
+#if 0
     short* shadowed_ids = (short*)calloc(N, sizeof(short));
     short shadowed_N = N;
-#if 0
     memcpy(shadowed_ids, ids, N*sizeof(short));
 
     // clear out any servos that already exist

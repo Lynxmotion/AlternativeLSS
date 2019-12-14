@@ -22,7 +22,6 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
    *  argument to SWITCH is the cmdid if we find a stop char and SWITCH is internally 
    *  aware the char to test is *pkt.
    */
-  const char* keep_ptr = pkt;
   SWITCH(LssInvalid) {
     case 'L': SWITCH(LssLimp) {
       case 'E': SWITCH(LssInvalid) {
@@ -348,7 +347,6 @@ bool LynxPacket::parse(const char* pkt)
   // when we are sure we've successfully parsed.
   short _id=0;
   LssCommands _command=LssInvalid;
-  LssModifiers _modifiers = 0;
   bool _hasValue=false;
   int _value=0;
 #if defined(LSS_LOGGING)

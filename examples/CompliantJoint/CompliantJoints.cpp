@@ -10,6 +10,9 @@
 
 #include <compliance/CompliantJoint.h>
 
+#if defined(ARDUINO)
+#include <Arduino.h>
+#endif
 
 
 // allow the use of the Exponential Moving Average Filter
@@ -48,7 +51,7 @@ CompliantJoint joints[] = {
 };
 
 
-int delay = 0;
+int jdelay = 0;
 MovingAverage<int> qtime(2), utime(2);
 
 bool learn_range = false;       // just position read-back to learn servo safety range
@@ -77,8 +80,8 @@ void updateJoints(unsigned long now) {
                    j.name.c_str(), j.position.min(), j.position.max()
             );
         } else if(learn_model) {
-            if(delay >0) {
-                delay--;
+            if(jdelay >0) {
+                jdelay--;
                 advance_joint = false;
             } else if(advance_joint) {
                 if(j.position.current() + j.velocity.current > j.position.max()) {
@@ -114,7 +117,7 @@ void updateJoints(unsigned long now) {
     }
 
     if(advance_delay) {
-        delay = 100;
+        jdelay = 100;
     }
     if(learn_model && advance_joint) {
         // end of movement
@@ -127,18 +130,25 @@ void updateJoints(unsigned long now) {
 
 #define UPDATE_DELAY			20
 
-int main() {
-    int success = 0, failed = 0, consecutiveFailures=0;
-    bool ready = true;
+int success = 0, failed = 0, consecutiveFailures=0;
+bool ready = true;
 
-    std::vector< Aggregate<unsigned long> > pkttimings;
+std::vector< Aggregate<unsigned long> > pkttimings;
+
+void setup() {
 
     // open a ttyUSB device
     //channel.begin("/dev/ttyUSB0", 115200);
 
     // open FTDI channel directly (do lsusb to get ftdi:<vendor>:<product>:<A,B,C,D>
     // where some ftdi chips have multiple serial ports and require and index A,B,C or D.
+#if defined(ARDUINO)
+    Serial.begin(115200);
+    Serial1.begin(115200);
+    channel.begin(Serial1, 115200);
+#else
     channel.begin("ftdi:0x403:0x6001:*", 115200);
+#endif
 
 #if 0
     // library doesnt support RESET command yet, so we'll just send as text (and give servos time to complete reset)
@@ -185,150 +195,158 @@ int main() {
         //joints[1].moveTo(463);
         //joints[2].moveTo(310);
     }
+}
 
-    unsigned long long _quitting_time = millis() + 300000;
-    while(millis() < _quitting_time && consecutiveFailures < 25) {
-        ready = false;
-        auto qstart = micros();
-        auto _next_update = qstart + 25000;
+void loop()
+{
+    ready = false;
+    auto qstart = micros();
+    auto _next_update = qstart + 25000;
 
-        std::vector<LynxPacket> queries;
-        for(auto j: joints) {
-            queries.emplace_back(j.joint, LssCurrent|LssQuery);
-            queries.emplace_back(j.joint, LssPosition|LssQuery|LssDegrees);
-        }
+    std::vector<LynxPacket> queries;
+    for(auto j: joints) {
+        queries.emplace_back(j.joint, LssCurrent|LssQuery);
+        queries.emplace_back(j.joint, LssPosition|LssQuery|LssDegrees);
+    }
 
-        channel.send(queries.begin(), queries.end())
-                .then( [&success, &ready, &_next_update, &consecutiveFailures, qstart, &pkttimings](const LssTransaction& tx) {
-                    auto packets = tx.packets();
-                    auto now = micros();
-                    qtime.add(now - qstart);
-                    auto ustart = now;
+    channel.send(queries.begin(), queries.end())
+        .then( [&_next_update, qstart](const LssTransaction& tx) {
+            auto packets = tx.packets();
+            auto now = micros();
+            qtime.add(now - qstart);
+            auto ustart = now;
 
-                    if(pkttimings.size() < packets.size())
-                        pkttimings.resize(packets.size());
+            if(pkttimings.size() < packets.size())
+                pkttimings.resize(packets.size());
 
-                    // update joint measurements
-                    int n=0;
-                    unsigned long long ts = 0;
-                    for(auto p: packets) {
-                        if(p.command & LssQuery && p.hasValue) {
-                            for(auto& j: joints) {
-                                if(j.joint == p.id) {
-                                    if (p.command & LssCurrent) {
-                                        j.current.current(p.value, p.microstamp); break;
-                                    } else if (p.command & LssPosition) {
-                                        j.position.current(p.value, p.microstamp); break;
-                                    }
-                                }
+            // update joint measurements
+            int n=0;
+            unsigned long long ts = 0;
+            for(auto p: packets) {
+                if(p.command & LssQuery && p.hasValue) {
+                    for(auto& j: joints) {
+                        if(j.joint == p.id) {
+                            if (p.command & LssCurrent) {
+                                j.current.current(p.value, p.microstamp); break;
+                            } else if (p.command & LssPosition) {
+                                j.position.current(p.value, p.microstamp); break;
                             }
                         }
-
-                        if(ts == 0) ts = p.microstamp;
-                        pkttimings[n++].add(p.microstamp - ts);
                     }
+                }
 
-                    // update joints
-                    updateJoints(now/1000);
+                if(ts == 0) ts = p.microstamp;
+                pkttimings[n++].add(p.microstamp - ts);
+            }
 
-                    std::vector<LynxPacket> updates;
-                    for(auto& j: joints) {
-                        if(!j.isEnabled())
-                            continue;
+            // update joints
+            updateJoints(now/1000);
 
-                        // set color of servo to indicate joint state (Compliance, Limp or Holding/Moving)
-                        switch(j.state) {
-                            case CompliantJoint::NegativeCompliance:
-                            case CompliantJoint::PositiveCompliance:
-                                updates.emplace_back(j.joint, LssLEDColor, LssMagenta);
-                                break;
+            std::vector<LynxPacket> updates;
+            for(auto& j: joints) {
+                if(!j.isEnabled())
+                    continue;
 
-                            case CompliantJoint::ComplianceLimp:
-                                updates.emplace_back(j.joint, LssLEDColor, LssRed);
-                                break;
+                // set color of servo to indicate joint state (Compliance, Limp or Holding/Moving)
+                switch(j.state) {
+                    case CompliantJoint::NegativeCompliance:
+                    case CompliantJoint::PositiveCompliance:
+                        updates.emplace_back(j.joint, LssLEDColor, LssMagenta);
+                        break;
 
-                            default:
-                                updates.emplace_back(j.joint, LssLEDColor, LssLedDefault);
-                                break;
-                        }
+                    case CompliantJoint::ComplianceLimp:
+                        updates.emplace_back(j.joint, LssLEDColor, LssRed);
+                        break;
+
+                    default:
+                        updates.emplace_back(j.joint, LssLEDColor, LssLedDefault);
+                        break;
+                }
 
 #ifdef USE_FPC
-                        if(j.cpr_changed) {
-                            //if(j.cpr ==0) {
-                            //    updates.emplace_back(j.joint, LssMotionControl, 1);
-                            //    updates.emplace_back(j.joint, LssMotionControl, 0);
-                            //} else
-                                updates.emplace_back(j.joint, LssFilterPoleCount, j.cpr);
-                                updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
-                            j.cpr_changed = false;
-                            //printf("%s CPR %d\n", j.name.c_str(), j.cpr);
-                            // fill the CPR
-                            //for(int i=1; i<j.cpr; i++)
-                            //    updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target);
-                        }
+                if(j.cpr_changed) {
+                    //if(j.cpr ==0) {
+                    //    updates.emplace_back(j.joint, LssMotionControl, 1);
+                    //    updates.emplace_back(j.joint, LssMotionControl, 0);
+                    //} else
+                        updates.emplace_back(j.joint, LssFilterPoleCount, j.cpr);
+                        updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
+                    j.cpr_changed = false;
+                    //printf("%s CPR %d\n", j.name.c_str(), j.cpr);
+                    // fill the CPR
+                    //for(int i=1; i<j.cpr; i++)
+                    //    updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target);
+                }
 #endif
 
-                        if(j.mmd.changed(false)) {
-                            char s[32];
-                            sprintf(s, "#%dMMD%d\r", j.joint, j.mmd.target());
-                            channel.transmit(s);
-                            j.mmd.current(j.mmd.target());
-                        }
-
-                        switch (j.state) {
-                                break;
-                            case CompliantJoint::PositiveCompliance:
-                            case CompliantJoint::NegativeCompliance:
-                                updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
-
-                            case CompliantJoint::Holding:
-                                updates.insert(updates.end(),
-                                               LynxPacket(j.joint, LssPosition | LssAction | LssDegrees,
-                                                          j.position.target())
-                                                       .currentHaltAndLimp(j.currentLimit)
-                                );
-                                break;
-
-                            case CompliantJoint::Moving:
-                                updates.insert(updates.end(),
-                                               LynxPacket(j.joint, LssPosition | LssAction | LssDegrees,
-                                                          j.position.target())
-                                );
-                                break;
-
-                            case CompliantJoint::ComplianceLimp:updates.emplace_back(j.joint, LssLimp | LssAction);
-                                break;
-                        }
-                        j.position.changed(false);
-
-                    }
-                    channel.send(updates.begin(), updates.end()).regardless([&ready, &success, &_next_update, &consecutiveFailures, ustart](const LssTransaction& tx2) {
-                        utime.add( micros() - ustart);
-                        ready = true;
-                        _next_update = micros() + 10000;
-                        success++;
-                        consecutiveFailures=0;
-                    });
-                })
-                .otherwise([&failed, &ready, &_next_update, &consecutiveFailures](const LssTransaction& tx) {
-                    // print the state of packets in the transaction
-                    printf("expired: \n");
+                if(j.mmd.changed(false)) {
                     char s[32];
-                    unsigned long long st = 0;
-                    for(auto& p: tx.packets()) {
-                        if(st ==0) st = p.microstamp;
-                        p.serialize(s);
-                        if(p.command & LssAction)
-                            printf("   %5lld: > %s\n", p.microstamp - st, s);
-                        else if(p.command & LssQuery)
-                            printf("   %5lld: %c %s\n", (p.microstamp>0) ? p.microstamp - st : 0, p.hasValue ? '<': '!', s);
-                    }
+                    sprintf(s, "#%dMMD%d\r", j.joint, j.mmd.target());
+                    channel.transmit(s);
+                    j.mmd.current(j.mmd.target());
+                }
 
-                    ready = true;
-                    _next_update = micros() + 20000;
-                    failed++;
-                    consecutiveFailures++;
-                });
+                switch (j.state) {
+                        break;
+                    case CompliantJoint::PositiveCompliance:
+                    case CompliantJoint::NegativeCompliance:
+                        updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
+
+                    case CompliantJoint::Holding:
+                        updates.insert(updates.end(),
+                                        LynxPacket(j.joint, LssPosition | LssAction | LssDegrees,
+                                                    j.position.target())
+                                                .currentHaltAndLimp(j.currentLimit)
+                        );
+                        break;
+
+                    case CompliantJoint::Moving:
+                        updates.insert(updates.end(),
+                                        LynxPacket(j.joint, LssPosition | LssAction | LssDegrees,
+                                                    j.position.target())
+                        );
+                        break;
+
+                    case CompliantJoint::ComplianceLimp:updates.emplace_back(j.joint, LssLimp | LssAction);
+                        break;
+                }
+                j.position.changed(false);
+
+            }
+            channel.send(updates.begin(), updates.end()).regardless([&_next_update, ustart](const LssTransaction& tx2) {
+                utime.add( micros() - ustart);
+                ready = true;
+                _next_update = micros() + 25000;
+                success++;
+                consecutiveFailures=0;
+            });
+        })
+        .otherwise([&_next_update](const LssTransaction& tx) {
+            // print the state of packets in the transaction
+            printf("expired: \n");
+            char s[32];
+            unsigned long long st = 0;
+            for(auto& p: tx.packets()) {
+                if(st ==0) st = p.microstamp;
+                p.serialize(s);
+                if(p.command & LssAction)
+                    printf("   %5lld: > %s\n", p.microstamp - st, s);
+                else if(p.command & LssQuery)
+                    printf("   %5lld: %c %s\n", (p.microstamp>0) ? p.microstamp - st : 0, p.hasValue ? '<': '!', s);
+            }
+
+            ready = true;
+            _next_update = micros() + 20000;
+            failed++;
+            consecutiveFailures++;
+        });
+}
+
+#if !defined(ARDUINO)
+int main() {
+    unsigned long long _quitting_time = millis() + 30000;
+    while(millis() < _quitting_time && consecutiveFailures < 25) {
+        loop();
 
         while(!ready || micros() < _next_update)
             usleep(500);
@@ -363,3 +381,4 @@ int main() {
 #endif
     return 0;
 }
+#endif
