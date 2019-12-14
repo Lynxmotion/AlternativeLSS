@@ -6,7 +6,7 @@ class posix_serial_private;
 
 
 class LssPosixChannel : public LssChannelDriver {
-public: // todo: should be private
+private:
     const char* devname;
     int baudrate;
 

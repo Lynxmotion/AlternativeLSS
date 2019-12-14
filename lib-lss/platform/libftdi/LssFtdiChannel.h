@@ -6,10 +6,8 @@ class ftdi_serial_private;
 
 
 class LssFtdiChannel : public LssChannelDriver {
-public: // todo: should be private
-    const char* devname;
+private:
     int baudrate;
-
     ftdi_serial_private* priv;
 
 public:

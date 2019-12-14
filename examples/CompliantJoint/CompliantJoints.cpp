@@ -133,8 +133,12 @@ int main() {
 
     std::vector< Aggregate<unsigned long> > pkttimings;
 
-    // put your setup code here, to run once:
-    channel.begin("/dev/ttyUSB0", 115200);
+    // open a ttyUSB device
+    //channel.begin("/dev/ttyUSB0", 115200);
+
+    // open FTDI channel directly (do lsusb to get ftdi:<vendor>:<product>:<A,B,C,D>
+    // where some ftdi chips have multiple serial ports and require and index A,B,C or D.
+    channel.begin("ftdi:0x403:0x6001:*", 115200);
 
 #if 0
     // library doesnt support RESET command yet, so we'll just send as text (and give servos time to complete reset)

@@ -37,10 +37,22 @@ AsyncToken LssChannel::ReadAsyncAll(LssCommands commands)
 
 ChannelDriverError LssChannel::begin(const char* devname, int baudrate)
 {
-    _driver = new LssPosixChannel(this);
+    if(strncasecmp("ftdi:", devname, 5) ==0) {
+#if defined(HAS_LIBFTDI)
+        _driver = new LssFtdiChannel(this);
+        devname += 5;
+#else
+        printf("ftdi support not enabled\n");
+#endif
+    } else {
+        _driver = new LssPosixChannel(this);
+    }
+
+    // open the driver channel
     ChannelDriverError rv = (ChannelDriverError)(_driver->signal(OpenSignal, baudrate, devname));
     if( rv != DriverSuccess)
         delete _driver;
+
     return rv;
 }
 

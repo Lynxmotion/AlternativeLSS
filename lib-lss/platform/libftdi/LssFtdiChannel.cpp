@@ -61,7 +61,7 @@ public:
 
 
 LssFtdiChannel::LssFtdiChannel(LssChannel* channel)
-        : LssChannelDriver(channel), priv(nullptr), devname(nullptr), baudrate(115200)
+        : LssChannelDriver(channel), priv(nullptr), baudrate(115200)
 {}
 
 LssFtdiChannel::~LssFtdiChannel() {
@@ -84,13 +84,22 @@ ChannelDriverError LssFtdiChannel::begin(const char* _devname, int _baudrate)
     if(priv !=nullptr)
         return DriverAlreadyInitialized;
 
-    if(devname) ::free((void*)devname);
-    devname = strdup(_devname);
     baudrate = _baudrate;
 
     statistics = Statistics();
 
     priv = new ftdi_serial_private();
+
+    int pid = 0x403, vid = 0x6001;
+    char _interface = 0;
+    sscanf(_devname, "%x:%x:%c", &pid, &vid, &_interface);
+    switch(toupper(_interface)) {
+        case 'A': priv->interface = INTERFACE_A; break;
+        case 'B': priv->interface = INTERFACE_B; break;
+        case 'C': priv->interface = INTERFACE_C; break;
+        case 'D': priv->interface = INTERFACE_D; break;
+        default: priv->interface = INTERFACE_ANY; break;
+    }
 
     // start the processing loop
     priv->state = ChannelStarting;
