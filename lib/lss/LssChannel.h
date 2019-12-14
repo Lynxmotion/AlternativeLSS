@@ -65,6 +65,11 @@ public:
         }
     }
 
+#if defined(ARDUINO)
+    // arduino typically uses polling since we are single threaded
+    inline void update() { if(_driver) _driver->signal(UpdateSignal, 0, NULL); }
+#endif
+
     virtual short scan(short beginId, short endId);
 
     LssTransaction::Promise send(std::initializer_list<LynxPacket> p);

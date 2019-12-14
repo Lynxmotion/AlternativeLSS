@@ -128,13 +128,6 @@ void updateJoints(unsigned long now) {
     printf("\n");
 }
 
-#define UPDATE_DELAY			20
-
-int success = 0, failed = 0, consecutiveFailures=0;
-bool ready = true;
-
-std::vector< Aggregate<unsigned long> > pkttimings;
-
 void setup() {
 
     // open a ttyUSB device
@@ -197,11 +190,24 @@ void setup() {
     }
 }
 
+
+#define UPDATE_DELAY			20
+
+std::vector< Aggregate<unsigned long> > pkttimings;
+int success = 0, failed = 0, consecutiveFailures=0;
+bool ready = false;
+auto qstart = micros();
+auto _next_update = qstart + 25000;
+
 void loop()
 {
-    ready = false;
-    auto qstart = micros();
-    auto _next_update = qstart + 25000;
+
+    channel.update();
+
+    // only continue if any current transaction has succeeeded
+    // todo: we need a ROS like loop
+    if(!ready)
+        return;
 
     std::vector<LynxPacket> queries;
     for(auto j: joints) {
@@ -210,7 +216,7 @@ void loop()
     }
 
     channel.send(queries.begin(), queries.end())
-        .then( [&_next_update, qstart](const LssTransaction& tx) {
+        .then( [](const LssTransaction& tx) {
             auto packets = tx.packets();
             auto now = micros();
             qtime.add(now - qstart);
@@ -317,7 +323,7 @@ void loop()
                 j.position.changed(false);
 
             }
-            channel.send(updates.begin(), updates.end()).regardless([&_next_update, ustart](const LssTransaction& tx2) {
+            channel.send(updates.begin(), updates.end()).regardless([ustart](const LssTransaction& tx2) {
                 utime.add( micros() - ustart);
                 ready = true;
                 _next_update = micros() + 25000;
@@ -325,7 +331,7 @@ void loop()
                 consecutiveFailures=0;
             });
         })
-        .otherwise([&_next_update](const LssTransaction& tx) {
+        .otherwise([](const LssTransaction& tx) {
             // print the state of packets in the transaction
             printf("expired: \n");
             char s[32];
