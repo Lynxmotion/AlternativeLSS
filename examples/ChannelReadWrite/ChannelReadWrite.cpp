@@ -1,7 +1,7 @@
 #include <LssChannel.h>
 #include <LssCommunication.h>
 #include <LssCommon.h>
-#include <MovingAverage.h>
+#include <analytics/MovingAverage.h>
 
 #include <cstdio>
 #include <iostream>
@@ -83,13 +83,13 @@ int main() {
         usleep(UPDATE_DELAY * 1000);
     }
 
+#if 0
     printf("sent %d messages (%4.2f msgs/sec)\n", success, success/30.0);
     if(failed>0)
         printf("   %d failures", failed);
     printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
             channel.bytes_sent, channel.bytes_sent/30.0*9, channel.bytes_received, channel.bytes_received/30.0*9);
 
-#if 0
     // print some detailed stats
     LynxServo::Statistics stats = LynxServo::globalStatistics();
     printf("packet statistics:\n");
