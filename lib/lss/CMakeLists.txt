@@ -8,6 +8,7 @@ set(SOURCE_FILES
         LssTransaction.h LssTransaction.cpp
         LssCommunication.h LssCommunication.cpp
         LssChannel.h LssChannel.cpp
+        LssChannelDriver.h
         platform/posix/LssPosixChannel.h platform/posix/LssPosixChannel.cpp
         analytics/aggregate.h analytics/MovingAverage.h analytics/numerics.h analytics/range.h
 )
@@ -17,7 +18,7 @@ if(HAS_LIBFTDI)
 endif()
 
 if(WITH_COMPLIANCE)
-    set(SOURCE_FILES ${SOURCE_FILES} compliance/parameter.h compliance/CompliantJoint.h compliance/CompliantJoint.cpp)
+    set(SOURCE_FILES ${SOURCE_FILES} parameter.h CompliantJoint.h CompliantJoint.cpp)
 endif()
 
 

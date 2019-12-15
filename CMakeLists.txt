@@ -91,6 +91,6 @@ if(SANITIZE)
 endif()
 
 
-add_subdirectory(lib-lss)
+add_subdirectory(lib)
 add_subdirectory(examples)
 #add_subdirectory(tests)

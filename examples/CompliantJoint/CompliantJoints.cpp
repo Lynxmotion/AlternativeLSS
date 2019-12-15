@@ -53,6 +53,12 @@ CompliantJoint joints[] = {
 
 int jdelay = 0;
 MovingAverage<int> qtime(2), utime(2);
+std::vector< Aggregate<unsigned long> > pkttimings;
+int success = 0, failed = 0, consecutiveFailures=0;
+bool ready = true;
+unsigned long long _next_update = 0;
+unsigned long next_print_stats = 10000;
+
 
 bool learn_range = false;       // just position read-back to learn servo safety range
 bool learn_model = false;       // beginnings of capturing input/feedback data for training
@@ -61,7 +67,7 @@ const int LEARN_MODEL_SPEED[] = {15, 50, 100};
 
 
 void updateJoints(unsigned long now) {
-    printf("%6dms", qtime.average()+utime.average());
+    printf("%6dms + %dms", qtime.average(), utime.average());
 
     bool advance_joint = true;
     bool advance_delay = false;
@@ -128,10 +134,26 @@ void updateJoints(unsigned long now) {
     printf("\n");
 }
 
+
+void print_stats() {
+    printf("sent %d messages (%4.2f msgs/sec)\n", success, success/30.0);
+    if(failed>0)
+        printf("   %d failures\n", failed);
+    LssChannelDriver::Statistics statistics = channel.driver().statistics;
+    printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
+           statistics.bytes_sent, statistics.bytes_sent/30.0*9,
+           statistics.bytes_received, statistics.bytes_received/30.0*9);
+
+    int n=0;
+    printf("packet timings:\n");
+    for(auto& m: pkttimings) {
+        printf("  "
+               "%d: %-4ld | %-4ld | %4ld\n", n++, m.minimum, m.average(), m.maximum);
+    }
+}
+
 void setup() {
 
-    // open a ttyUSB device
-    //channel.begin("/dev/ttyUSB0", 115200);
 
     // open FTDI channel directly (do lsusb to get ftdi:<vendor>:<product>:<A,B,C,D>
     // where some ftdi chips have multiple serial ports and require and index A,B,C or D.
@@ -140,6 +162,10 @@ void setup() {
     Serial1.begin(115200);
     channel.begin(Serial1, 115200);
 #else
+    // open a ttyUSB device
+    //channel.begin("/dev/ttyUSB0", 115200);
+
+    // or open an FTDI channel directly (unload the ftdi_sio driver)
     channel.begin("ftdi:0x403:0x6001:*", 115200);
 #endif
 
@@ -190,24 +216,22 @@ void setup() {
     }
 }
 
-
-#define UPDATE_DELAY			20
-
-std::vector< Aggregate<unsigned long> > pkttimings;
-int success = 0, failed = 0, consecutiveFailures=0;
-bool ready = false;
-auto qstart = micros();
-auto _next_update = qstart + 25000;
-
 void loop()
 {
-
+#if defined(ARDUINO)
     channel.update();
+#endif
+
+    if(millis() > next_print_stats) {
+        print_stats();
+        next_print_stats = millis() + 15000;
+    }
 
     // only continue if any current transaction has succeeeded
     // todo: we need a ROS like loop
     if(!ready)
         return;
+    ready = false;
 
     std::vector<LynxPacket> queries;
     for(auto j: joints) {
@@ -215,12 +239,11 @@ void loop()
         queries.emplace_back(j.joint, LssPosition|LssQuery|LssDegrees);
     }
 
+    auto qstart = micros();
     channel.send(queries.begin(), queries.end())
-        .then( [](const LssTransaction& tx) {
+        .then( [qstart](const LssTransaction& tx) {
             auto packets = tx.packets();
-            auto now = micros();
-            qtime.add(now - qstart);
-            auto ustart = now;
+            auto ustart = micros();
 
             if(pkttimings.size() < packets.size())
                 pkttimings.resize(packets.size());
@@ -246,7 +269,7 @@ void loop()
             }
 
             // update joints
-            updateJoints(now/1000);
+            updateJoints(ustart/1000);
 
             std::vector<LynxPacket> updates;
             for(auto& j: joints) {
@@ -323,10 +346,12 @@ void loop()
                 j.position.changed(false);
 
             }
-            channel.send(updates.begin(), updates.end()).regardless([ustart](const LssTransaction& tx2) {
-                utime.add( micros() - ustart);
+            channel.send(updates.begin(), updates.end()).regardless([qstart, ustart](const LssTransaction& tx2) {
+                auto now = micros();
+                qtime.add(now - qstart);
+                utime.add(now - ustart);
                 ready = true;
-                _next_update = micros() + 25000;
+                _next_update = now + 25000;
                 success++;
                 consecutiveFailures=0;
             });
@@ -354,6 +379,8 @@ void loop()
 
 #if !defined(ARDUINO)
 int main() {
+    setup();
+
     unsigned long long _quitting_time = millis() + 30000;
     while(millis() < _quitting_time && consecutiveFailures < 25) {
         loop();
@@ -362,20 +389,7 @@ int main() {
             usleep(500);
     }
 
-    printf("sent %d messages (%4.2f msgs/sec)\n", success, success/30.0);
-    if(failed>0)
-        printf("   %d failures\n", failed);
-    LssChannelDriver::Statistics statistics = channel.driver().statistics;
-    printf("%ld bytes sent (%4.2fbps), %ld bytes received (%4.2fbps)\n",
-            statistics.bytes_sent, statistics.bytes_sent/30.0*9,
-            statistics.bytes_received, statistics.bytes_received/30.0*9);
-
-    int n=0;
-    printf("packet timings:\n");
-    for(auto& m: pkttimings) {
-        printf("  "
-               "%d: %-4ld | %-4ld | %4ld\n", n++, m.minimum, m.average(), m.maximum);
-    }
+    print_stats();
 
 #if 0
     // print some detailed stats

@@ -74,7 +74,7 @@ LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packe
     auto& promise = transactions.back().promise;
     bool sendSignal = transactions.size() ==1;
     pthread_mutex_unlock(&txlock);
-    if(sendSignal)
+    if(_driver && sendSignal)
         _driver->signal(TransactionSignal, 0, nullptr);
     return promise;
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../LssChannelDriver.h"
+#include "../../LssChannelDriver.h"
 
 class ftdi_serial_private;
 

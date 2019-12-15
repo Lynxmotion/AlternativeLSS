@@ -2,6 +2,7 @@
 #define RAF_h
 
 #include <stdlib.h>
+#include <cassert>
 
 template<typename T>
 class MovingAverage
@@ -52,6 +53,7 @@ public:
 
 	void add(T value)
 	{
+	    assert(size>0);
 		if(++p >= size)
 			p = 0;
 		acc -= history[p];

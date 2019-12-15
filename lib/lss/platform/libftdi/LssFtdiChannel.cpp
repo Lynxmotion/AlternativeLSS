@@ -1,5 +1,5 @@
 #include "LssFtdiChannel.h"
-#include "../../LssServo.h"
+#include "../../LssChannel.h"
 
 #include <termios.h>
 #include <stdio.h>
@@ -375,7 +375,8 @@ intptr_t LssFtdiChannel::signal(ChannelDriverSignal signal, unsigned long a, con
 
         case TransactionSignal:
         case DataSignal:
-            write(priv->notify.client, "*", 1);
+            channel->driverIdle();
+            //write(priv->notify.client, "*", 1);
             break;
 
         case TransmitSignal:
@@ -390,7 +391,7 @@ void LssFtdiChannel::transmit(const char* pkt_bytes, int count) {
     if(priv->state >= ChannelIdle) {
         if(count<0)
             count = strlen(pkt_bytes);
-        IFLOG(printf("%lld=>%s", tt, pkt_bytes));
+        IFLOG(printf("=>%s", pkt_bytes));
         statistics.bytes_sent += count;
         if(priv->ftdi) {
             ftdi_write_data(priv->ftdi, (unsigned char*)pkt_bytes, count);
