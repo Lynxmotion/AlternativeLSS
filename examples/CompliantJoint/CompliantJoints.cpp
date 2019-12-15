@@ -65,6 +65,9 @@ bool learn_model = false;       // beginnings of capturing input/feedback data f
 
 const int LEARN_MODEL_SPEED[] = {15, 50, 100};
 
+#if !defined(ARDUINO)
+std::string serial_devname;
+#endif
 
 void updateJoints(unsigned long now) {
     printf("%6dms + %dms", qtime.average(), utime.average());
@@ -145,11 +148,16 @@ void print_stats() {
            statistics.bytes_received, statistics.bytes_received/30.0*9);
 
     int n=0;
+    unsigned long dx=0;
+    Aggregate<unsigned long> totals;
     printf("packet timings:\n");
     for(auto& m: pkttimings) {
-        printf("  "
-               "%d: %-4ld | %-4ld | %4ld\n", n++, m.minimum, m.average(), m.maximum);
+        printf("  %d: %5ld | %5ld | %5ld\n", n++, m.minimum, m.average(), m.maximum);
+	totals.add( m.average() - dx );
+	dx = m.average();
     }
+    printf("      ---------------------\n");
+    printf("      %5ld | %5ld | %5ld\n", totals.minimum, totals.average(), totals.maximum);
 }
 
 void setup() {
@@ -164,9 +172,11 @@ void setup() {
 #else
     // open a ttyUSB device
     //channel.begin("/dev/ttyUSB0", 115200);
-
+    //
     // or open an FTDI channel directly (unload the ftdi_sio driver)
-    channel.begin("ftdi:0x403:0x6001:*", 115200);
+    //channel.begin("ftdi:0x403:0x6001:*", 115200);
+    //
+    channel.begin(serial_devname.c_str(), 115200);
 #endif
 
 #if 0
@@ -378,7 +388,12 @@ void loop()
 }
 
 #if !defined(ARDUINO)
-int main() {
+int main(int argc, char *argv[]) {
+    if(argc >1) {
+	    serial_devname = argv[1];
+	    printf("using port %s\n", serial_devname.c_str());
+    }
+
     setup();
 
     unsigned long long _quitting_time = millis() + 30000;
@@ -406,3 +421,5 @@ int main() {
     return 0;
 }
 #endif
+
+
