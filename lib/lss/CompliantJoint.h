@@ -107,6 +107,8 @@ public:
 
     inline bool isLimp() const { return state == Limp; }
 
+    inline void limp() { state = Limp; }
+
     CompliantJoint& moveTo(int _position, bool _transition=true);
 
     Parameter<int> mmd;                  // in mA

@@ -337,10 +337,13 @@ void loop()
                 }
 
                 switch (j.state) {
+                    case CompliantJoint::Limp:
+                        updates.emplace_back(j.joint, LssLimp | LssAction);
                         break;
                     case CompliantJoint::PositiveCompliance:
                     case CompliantJoint::NegativeCompliance:
                         updates.emplace_back(j.joint, LssPosition | LssAction | LssDegrees, j.position.target());
+                        break;
 
                     case CompliantJoint::Holding:
                         updates.insert(updates.end(),
