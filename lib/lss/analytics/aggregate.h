@@ -39,7 +39,7 @@ public:
   }
 	
   T average() const {
-    return (T)(sum/count);
+    return count ? (T)(sum/count) : 0;
   }
 };
 

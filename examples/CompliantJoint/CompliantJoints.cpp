@@ -1,6 +1,7 @@
 #include <LssCommunication.h>
 #include <LssChannel.h>
 #include <LssCommon.h>
+#include <CompliantJoint.h>
 
 #include <cstdio>
 #include <iostream>
@@ -8,7 +9,6 @@
 #include <unistd.h>
 #include <climits>
 
-#include <CompliantJoint.h>
 
 #if defined(ARDUINO)
 #include <Arduino.h>
@@ -27,12 +27,12 @@ LssChannel channel;
 
 
 CompliantJoint joints[] = {
-#if 1
         CompliantJoint(11, "FL.R"),
         CompliantJoint(12, "FL.P"),
         CompliantJoint(13, "KL"),
         CompliantJoint(14, "HL.P"),
         CompliantJoint(15, "HL.R"),
+#if 1
         CompliantJoint(16, "HL.Y"),
         CompliantJoint(17, "SL.R"),
         CompliantJoint(18, "SL.P"),
@@ -44,10 +44,11 @@ CompliantJoint joints[] = {
         CompliantJoint(24, "HR.P"),
         CompliantJoint(25, "HR.R"),
         CompliantJoint(26, "HR.Y"),
-#endif
+
         CompliantJoint(27, "SH.R"),
         CompliantJoint(28, "SH.P"),
         CompliantJoint(29, "ER")
+#endif
 };
 
 
@@ -160,6 +161,11 @@ void print_stats() {
     printf("      %5ld | %5ld | %5ld\n", totals.minimum, totals.average(), totals.maximum);
 }
 
+
+#if defined(ARDUINO)
+HardwareSerial mySerial2(2);
+#endif
+
 void setup() {
 
 
@@ -167,8 +173,12 @@ void setup() {
     // where some ftdi chips have multiple serial ports and require and index A,B,C or D.
 #if defined(ARDUINO)
     Serial.begin(115200);
-    Serial1.begin(115200);
-    channel.begin(Serial1, 115200);
+    
+    // heltec
+    Serial.println("Compliant Joint Test\n");
+    delay(500);
+    mySerial2.begin(230400,SERIAL_8N1,13,5);
+    channel.begin(mySerial2, 230400);
 #else
     // open a ttyUSB device
     //channel.begin("/dev/ttyUSB0", 115200);
@@ -176,7 +186,7 @@ void setup() {
     // or open an FTDI channel directly (unload the ftdi_sio driver)
     //channel.begin("ftdi:0x403:0x6001:*", 115200);
     //
-    channel.begin(serial_devname.c_str(), 115200);
+    channel.begin(serial_devname.c_str(), 230400);
 #endif
 
 #if 0
@@ -254,6 +264,7 @@ void loop()
         .then( [qstart](const LssTransaction& tx) {
             auto packets = tx.packets();
             auto ustart = micros();
+            qtime.add(ustart - qstart);
 
             if(pkttimings.size() < packets.size())
                 pkttimings.resize(packets.size());
@@ -358,7 +369,6 @@ void loop()
             }
             channel.send(updates.begin(), updates.end()).regardless([qstart, ustart](const LssTransaction& tx2) {
                 auto now = micros();
-                qtime.add(now - qstart);
                 utime.add(now - ustart);
                 ready = true;
                 _next_update = now + 25000;

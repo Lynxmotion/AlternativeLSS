@@ -18,7 +18,7 @@
 #include <poll.h>
 #include <asm/ioctls.h>
 
-#define BAUDRATE B115200
+#define BAUDRATE B230400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 
 

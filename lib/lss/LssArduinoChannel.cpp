@@ -62,9 +62,11 @@ intptr_t LssArduinoChannel::signal(ChannelDriverSignal signal, unsigned long a, 
     switch(signal) {
         case OpenSignal:
             begin( (Stream*)ptr);
+            Serial.println("Arduino serial channel");
             break;
 
         case UpdateSignal:
+            channel->driverIdle();
             update();
             break;
             
@@ -75,6 +77,7 @@ intptr_t LssArduinoChannel::signal(ChannelDriverSignal signal, unsigned long a, 
 
         case TransmitSignal:
             if(ptr && a>0) {
+                //Serial.print('['); Serial.print(a); Serial.println(']');
                 serial->write( (const char*)ptr, a );
 
 #if defined(ARDUINO) && INTERPACKET_DELAY>0
