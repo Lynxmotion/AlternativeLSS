@@ -152,8 +152,10 @@ reopen:
         perror(devname);
         errors++;
         consecutive_errors++;
-        if(consecutive_errors > 300)
+        if(consecutive_errors > 300) {
+            printf("too many consecutive errors, aborting.\n");
             goto exit_serial_processing;
+        }
         sleep(1);
         goto reopen;
     }
