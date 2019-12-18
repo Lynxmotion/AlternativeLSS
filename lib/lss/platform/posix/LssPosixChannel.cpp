@@ -99,10 +99,14 @@ ChannelDriverError LssPosixChannel::begin(const char* _devname, int _baudrate)
         usleep(1000);   // 1ms
 
     if(priv->state <= ChannelStarting) {
+	fprintf(stderr,"timeout starting serial processing\n");
         // processing loop failed to start in time
         void* rv = nullptr;
-        pthread_cancel(priv->loop);
-        pthread_join(priv->loop, &rv);
+	if(priv->state == ChannelStarting) {
+	  priv->state = ChannelError;
+          //pthread_cancel(priv->loop);
+          pthread_join(priv->loop, &rv);
+	}
         delete priv;
         priv = nullptr;
         return DriverOpenFailed;
@@ -153,9 +157,11 @@ reopen:
         errors++;
         consecutive_errors++;
         if(consecutive_errors > 300) {
-            printf("too many consecutive errors, aborting.\n");
+            fprintf(stderr, "too many consecutive errors, aborting.\n");
             goto exit_serial_processing;
-        }
+        } else if(priv->state < ChannelStarting) {
+	    goto exit_serial_processing;
+	}
         sleep(1);
         goto reopen;
     }
