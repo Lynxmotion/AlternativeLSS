@@ -330,7 +330,7 @@ void LssPosixChannel::transmit(const char* pkt_bytes, int count) {
     if(priv->state >= ChannelIdle) {
         if(count<0)
             count = strlen(pkt_bytes);
-        IFLOG(printf("%lld=>%s", tt, pkt_bytes));
+        IFLOG(printf("=>%s", pkt_bytes));
 
         statistics.bytes_sent += count;
         write(priv->fd, pkt_bytes, count);

@@ -40,8 +40,10 @@ ChannelDriverError LssChannel::begin(Stream& dev, int baudrate)
     // open the driver channel
     _driver = new LssArduinoChannel(this);
     ChannelDriverError rv = (ChannelDriverError)(_driver->signal(OpenSignal, baudrate, &dev));
-    if( rv != DriverSuccess)
+    if( rv != DriverSuccess) {
         delete _driver;
+        Serial.println("failed to open Arduino serial channel");
+    }
     return rv;
 }
 #else
@@ -167,6 +169,13 @@ void LssChannel::driverDispatch(LynxPacket& p) {
         }
         driverIdle();
     }
+}
+
+void LssChannel::transmitImmediate(const char* text)
+{
+    // transmit to LSS bus
+    if(_driver)
+        _driver->signal(TransmitSignal, strlen(text), text);
 }
 
 void LssChannel::transmit(const LynxPacket &p)

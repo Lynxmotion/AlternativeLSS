@@ -19,7 +19,7 @@
 #define USE_FPC
 
 // the default LED color when joint is not in compliance mode
-const short  LssLedDefault = LssLedOff;
+const short  LssLedDefault = LssBlue;
 
 // a channel represents a bus of servos and is attached to a Arduino Stream
 // (typically a HardwareSerial port)
@@ -27,28 +27,29 @@ LssChannel channel;
 
 
 CompliantJoint joints[] = {
+#if 0
         CompliantJoint(11, "FL.R"),
         CompliantJoint(12, "FL.P"),
         CompliantJoint(13, "KL"),
         CompliantJoint(14, "HL.P"),
         CompliantJoint(15, "HL.R"),
-#if 1
         CompliantJoint(16, "HL.Y"),
+#endif
+
         CompliantJoint(17, "SL.R"),
         CompliantJoint(18, "SL.P"),
         CompliantJoint(19, "EL"),
-
+#if 0
         CompliantJoint(21, "FR.R"),
         CompliantJoint(22, "FR.P"),
         CompliantJoint(23, "KR"),
         CompliantJoint(24, "HR.P"),
         CompliantJoint(25, "HR.R"),
         CompliantJoint(26, "HR.Y"),
-
+#endif
         CompliantJoint(27, "SH.R"),
         CompliantJoint(28, "SH.P"),
         CompliantJoint(29, "ER")
-#endif
 };
 
 
@@ -202,8 +203,7 @@ void setup() {
     channel.transmit(LynxPacket(254, LssLEDColor, LssLedDefault));
     channel.transmit(LynxPacket(254, LssAngularStiffness, -3));
     channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, -3));
-    channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, 8));
-    channel.transmit("#254MMD300\r");
+    channel.transmitImmediate("#254MMD300\r");
 
     /* Some joint setup
      */
@@ -332,7 +332,7 @@ void loop()
                 if(j.mmd.changed(false)) {
                     char s[32];
                     sprintf(s, "#%dMMD%d\r", j.joint, j.mmd.target());
-                    channel.transmit(s);
+                    channel.transmitImmediate(s);
                     j.mmd.current(j.mmd.target());
                 }
 
@@ -374,7 +374,7 @@ void loop()
                 auto now = micros();
                 utime.add(now - ustart);
                 ready = true;
-                _next_update = now + 25000;
+                _next_update = now + 5000;
                 success++;
                 consecutiveFailures=0;
             });
@@ -409,13 +409,17 @@ int main(int argc, char *argv[]) {
 
     setup();
 
-    unsigned long long _quitting_time = millis() + 30000;
+    unsigned long long _quitting_time = millis() + 300000;
     while(millis() < _quitting_time && consecutiveFailures < 25) {
         loop();
 
         while(!ready || micros() < _next_update)
             usleep(500);
     }
+
+    // turn off the servos
+    channel.transmit(LynxPacket(254, LssLEDColor, LssLedOff));
+    channel.transmit(LynxPacket(254,LssLimp));
 
     print_stats();
 

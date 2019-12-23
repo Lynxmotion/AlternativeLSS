@@ -92,6 +92,10 @@ public:
     //virtual void transmit(const char* pkt_bytes, int count)=0;
     virtual void transmit(const LynxPacket& pkt);
 
+    /// transmit data directly onto the LSS bus
+    /// Use at your own risk, this bypasses performance features of this library and is not recommended.
+    void transmitImmediate(const char* text);
+
     void create(const short* ids, short N);
 
     template<size_t N>
