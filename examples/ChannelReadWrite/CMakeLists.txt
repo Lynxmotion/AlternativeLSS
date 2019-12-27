@@ -15,6 +15,16 @@ set_property(TARGET lss-objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
 #set_property(TARGET lss-objlib PROPERTY C_STANDARD 99)
 #target_include_directories(lss-objlib )
 
+if(HAS_LIBFTDI)
+    target_link_libraries(lss-channelrw ftdi)
+endif()
+
+if(VALGRIND)
+    add_dependencies(memcheck memcheck-lss-channelrw)
+    add_custom_target(memcheck-lss-channelrw
+            COMMAND "${VALGRIND}" --tool=memcheck --leak-check=yes --show-reachable=yes --num-callers=20 --track-fds=yes $<TARGET_FILE:lss-channelrw>)
+endif()
+
 install(TARGETS lss-channelrw
         RUNTIME DESTINATION "bin"
         LIBRARY DESTINATION "lib"
