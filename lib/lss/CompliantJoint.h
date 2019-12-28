@@ -80,7 +80,7 @@ public:
 
     //bool targetUpdated;
 
-    int compliantUntil;              // millis timestamp when we switched to compliance
+    unsigned long compliantUntil;              // millis timestamp when we switched to compliance
 
 //    MatrixXd gravity;             // vector for gravity
 //    MatrixXd externalForce;       // estimated/deduced vector of force we are experiencing

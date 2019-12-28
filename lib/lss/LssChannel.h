@@ -58,6 +58,10 @@ public:
     ChannelDriverError begin(const char* devname, int baudrate);
 #endif
 
+    inline bool ready() const {
+        return _driver != nullptr;
+    }
+
     inline void close() {
         if(_driver) {
             delete _driver;
@@ -106,6 +110,8 @@ public:
 
     const LssChannelDriver& driver() const { return *_driver; }
     LssChannelDriver& driver() { return *_driver; }
+
+    void clear();
 
     Statistics statistics;
 

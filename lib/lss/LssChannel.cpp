@@ -69,6 +69,17 @@ ChannelDriverError LssChannel::begin(const char* devname, int baudrate)
 }
 #endif
 
+void LssChannel::clear() {
+    pthread_mutex_lock(&txlock);
+    if(!transactions.empty()) {
+        auto &current = transactions.front();
+        current.promise.reject(current);   // will call promises
+    }
+    transactions.clear();
+    pthread_mutex_unlock(&txlock);
+}
+
+
 LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packets)
 {
     pthread_mutex_lock(&txlock);
