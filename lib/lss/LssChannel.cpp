@@ -17,23 +17,6 @@ LssChannel::~LssChannel()
     pthread_mutex_destroy(&txlock);
 }
 
-#if 0
-// todo make this take a collection of servos
-AsyncToken LssChannel::ReadAsyncAll(LssCommands commands)
-{
-    if(count>0) {
-        AsyncToken rt;
-        for (int i = 0; i < count; i++) {
-            AsyncToken t = servos[i]->ReadAsync(commands);
-            if (t.isActive())
-                rt = t; // only accept if we got a valid active token, otherwise the servo is ignored and AsyncAll does its best
-        }
-        return rt;  // return the last active token, which will be the last token to finish and thus finishing our AsyncAll
-    } else
-        return AsyncToken();
-}
-#endif
-
 #if defined(ARDUINO)
 ChannelDriverError LssChannel::begin(Stream& dev, int baudrate)
 {
@@ -73,17 +56,19 @@ void LssChannel::clear() {
     pthread_mutex_lock(&txlock);
     if(!transactions.empty()) {
         auto &current = transactions.front();
-        current.promise.reject(current);   // will call promises
+        current.promise.reject(current.tx);   // will call promises
     }
     transactions.clear();
     pthread_mutex_unlock(&txlock);
 }
 
 
-LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packets)
+LssChannel::Promise LssChannel::send(std::shared_ptr<LssTransaction> tx)
 {
     pthread_mutex_lock(&txlock);
-    transactions.emplace_back(txn_next++, packets);
+    tx->reset();
+    tx->txn = txn_next++;
+    transactions.emplace_back(tx);
     auto& promise = transactions.back().promise;
     bool sendSignal = transactions.size() ==1;
     pthread_mutex_unlock(&txlock);
@@ -92,32 +77,13 @@ LssTransaction::Promise LssChannel::send(std::initializer_list<LynxPacket> packe
     return promise;
 }
 
-
-#if 0
-bool LssChannel::waitFor(const AsyncToken& token)
-{
-    unsigned long timeout = micros() + timeout_usec;
-    unsigned long _txn = txn_current;
-    while( micros() < timeout && token.isActive()) {
-        if(_txn != txn_current) {
-            // a servo responded, reset timeout
-            timeout = micros() + timeout_usec;
-            _txn = txn_current;
-        }
-
-        update(); // this call will process incoming data and update the servos
-    }
-    return token.isComplete();
-}
-#endif
-
 void LssChannel::completeTransaction()
 {
     auto &current = transactions.front();
-    if(current.state == LssTransaction::Completed)
-        current.promise.resolve(current);   // will call promises
+    if(current.tx->state == LssTransaction::Completed)
+        current.promise.resolve(current.tx);   // will call promises
     else
-        current.promise.reject(current);   // will call promises
+        current.promise.reject(current.tx);   // will call promises
 
     pthread_mutex_lock(&txlock);
     transactions.pop_front();
@@ -127,7 +93,6 @@ void LssChannel::completeTransaction()
     // transmit the next transaction
     if(transmit_next)
         driverIdle();
-
 }
 
 void LssChannel::driverIdle()
@@ -135,9 +100,9 @@ void LssChannel::driverIdle()
     if(!transactions.empty()) {
         auto now = micros();
         auto &current = transactions.front();
-        if(current.expired(now)) {
+        if(current.tx->expired(now)) {
             // this transaction has waited too long
-            current.expire();
+            current.tx->expire();
             completeTransaction();
             return;
         }
@@ -145,13 +110,13 @@ void LssChannel::driverIdle()
         LynxPacket p;
         do
         {
-            p = current.next();
+            p = current.tx->next();
             if(p.id) {
                 LssChannel::transmit(p);
             }
         } while (p.id && (p.command & LssQuery)==0);
 
-        if(current.state >= LssTransaction::Completed)
+        if(current.tx->state >= LssTransaction::Completed)
             completeTransaction();
     }
 }
@@ -160,33 +125,12 @@ void LssChannel::driverDispatch(LynxPacket& p) {
     p.microstamp = micros();
     if (!transactions.empty()) {
         auto &current = transactions.front();
-        current.dispatch(p);
-        if(current.state >= LssTransaction::Completed) {
+        current.tx->dispatch(p);
+        if(current.tx->state >= LssTransaction::Completed) {
             completeTransaction();
-
-#if 0
-            // todo: update all servos in the transaction
-            for(int i=0; i<count; i++) {
-                if(servos[i]->id == packet.id) {
-                    //servos[i]->dispatch(packet);
-                    consecutive_errors = 0;
-                    //dispatchPromises();
-
-
-                    break;
-                }
-            }
-#endif
         }
         driverIdle();
     }
-}
-
-void LssChannel::transmitImmediate(const char* text)
-{
-    // transmit to LSS bus
-    if(_driver)
-        _driver->signal(TransmitSignal, strlen(text), text);
 }
 
 void LssChannel::transmit(const LynxPacket &p)
@@ -208,6 +152,13 @@ void LssChannel::transmit(const LynxPacket &p)
         // transmit to LSS bus
         _driver->signal(TransmitSignal, pend - pbegin, pbegin);
     }
+}
+
+void LssChannel::transmit(const char* text, int text_len)
+{
+    // transmit to LSS bus
+    if(_driver)
+        _driver->signal(TransmitSignal, (text_len>=0) ? text_len : strlen(text), text);
 }
 
 short LssChannel::scan(short beginId, short endId)
@@ -260,9 +211,9 @@ short LssChannel::scan(short beginId, short endId)
     return N;
 }
 
+#if 0   // old code that may be reused at some point in the future
 void LssChannel::create(const short* ids, short N)
 {
-#if 0
     short* shadowed_ids = (short*)calloc(N, sizeof(short));
     short shadowed_N = N;
     memcpy(shadowed_ids, ids, N*sizeof(short));
@@ -297,5 +248,35 @@ void LssChannel::create(const short* ids, short N)
 
     // free shadow mem
     ::free(shadowed_ids);
-#endif
 }
+
+AsyncToken LssChannel::ReadAsyncAll(LssCommands commands)
+{
+    if(count>0) {
+        AsyncToken rt;
+        for (int i = 0; i < count; i++) {
+            AsyncToken t = servos[i]->ReadAsync(commands);
+            if (t.isActive())
+                rt = t; // only accept if we got a valid active token, otherwise the servo is ignored and AsyncAll does its best
+        }
+        return rt;  // return the last active token, which will be the last token to finish and thus finishing our AsyncAll
+    } else
+        return AsyncToken();
+}
+
+bool LssChannel::waitFor(const AsyncToken& token)
+{
+    unsigned long timeout = micros() + timeout_usec;
+    unsigned long _txn = txn_current;
+    while( micros() < timeout && token.isActive()) {
+        if(_txn != txn_current) {
+            // a servo responded, reset timeout
+            timeout = micros() + timeout_usec;
+            _txn = txn_current;
+        }
+
+        update(); // this call will process incoming data and update the servos
+    }
+    return token.isComplete();
+}
+#endif

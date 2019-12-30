@@ -11,9 +11,8 @@ LssTransaction::LssTransaction(unsigned long _txn, std::initializer_list<LynxPac
       txt(0), ttfr(0), ttc(0), tt_tx_c(0), expireInterval(_expire_uSec), 
       _packets(packets)
 {
-    std::sort(_packets.begin(), _packets.end(), _packet_order_by_busid::sorter);
-    _tx = _packets.begin();
-    _rx = _packets.begin();
+    // std::sort(_packets.begin(), _packets.end(), _packet_order_by_busid::sorter);
+    _tx = _rx = _packets.begin();
 }
 
 #if 0
@@ -42,6 +41,19 @@ LssTransaction& LssTransaction::operator=(const LssTransaction& copy)
     return *this;
 }
 #endif
+
+void LssTransaction::reset() {
+    txn = 0;
+    timestamp = expireAt = 0;
+    state = Pending;
+    txt = ttfr = ttc = tt_tx_c = 0;
+    _tx = _rx = _packets.begin();
+    for(auto& p: _packets) {
+        if(p.command & LssQuery)
+            p.clear();
+        p.microstamp = 0;
+    }
+}
 
 bool LssTransaction::expired(unsigned long long tsnow) const {
     if(state == Expired)

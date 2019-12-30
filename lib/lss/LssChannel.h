@@ -10,6 +10,7 @@
 #endif
 
 #include <list>
+#include <utility>
 
 class LynxServo;
 
@@ -35,8 +36,19 @@ public: // todo: should be private
     unsigned long txn_current;  // transmission number we are sending now
     unsigned long txn_next;     // next transmission number we will assign
 
+    using Promise = LssPromise< LssTransaction >;
+
+    class QueuedTransaction {
+    public:
+        std::shared_ptr<LssTransaction> tx;
+        Promise promise;
+
+        inline QueuedTransaction() {}
+        inline QueuedTransaction(std::shared_ptr<LssTransaction> _tx) : tx(std::move(_tx)) {}
+    };
+
     pthread_mutex_t txlock;
-    std::list<LssTransaction> transactions;
+    std::list< QueuedTransaction > transactions;
 
 public:
 class Statistics {
@@ -69,56 +81,42 @@ public:
         }
     }
 
+    void clear();
+
+    short scan(short beginId, short endId);
+
+    Promise send(std::shared_ptr<LssTransaction> tx);
+
+    inline Promise send(std::initializer_list<LynxPacket> packets)
+    {
+        return send(std::make_shared<LssTransaction>(txn_next++, packets));
+    }
+
+    template<class It>
+    Promise send(It first, It last)
+    {
+        return send(std::make_shared<LssTransaction>(txn_next++, first, last));
+    }
+
+    // transmit a serialized packet through the channel
+    void transmit(const LynxPacket& pkt);
+
+    /// transmit data directly onto the LSS bus
+    /// Use at your own risk, this bypasses performance features of this library and is not recommended.
+    void transmit(const char* text, int text_len=-1);
+
+    const LssChannelDriver& driver() const { return *_driver; }
+    LssChannelDriver& driver() { return *_driver; }
+
 #if defined(ARDUINO)
     // arduino typically uses polling since we are single threaded
     inline void update() { if(_driver) _driver->signal(UpdateSignal, 0, NULL); }
 #endif
 
-    virtual short scan(short beginId, short endId);
-
-    LssTransaction::Promise send(std::initializer_list<LynxPacket> p);
-
-    template<class It>
-    LssTransaction::Promise send(It first, It last)
-    {
-        pthread_mutex_lock(&txlock);
-        //LssTransaction tx(txn_next++, packets);
-        transactions.emplace_back(txn_next++, first, last);
-        auto& promise = transactions.back().promise;
-        bool sendSignal = transactions.size() ==1;
-        pthread_mutex_unlock(&txlock);
-        if(_driver && sendSignal)
-            _driver->signal(TransactionSignal, 0, nullptr);
-        return promise;
-    }
-
-    // transmit a serialized packet through the channel
-    //virtual void transmit(const char* pkt_bytes, int count)=0;
-    virtual void transmit(const LynxPacket& pkt);
-
-    /// transmit data directly onto the LSS bus
-    /// Use at your own risk, this bypasses performance features of this library and is not recommended.
-    void transmitImmediate(const char* text);
-
-    void create(const short* ids, short N);
-
-    template<size_t N>
-    inline void create(const short (&ids)[N]) { create(ids, N); }
-
-    // perform a read
-    //AsyncToken ReadAsyncAll(LssCommands commands);
-
-    const LssChannelDriver& driver() const { return *_driver; }
-    LssChannelDriver& driver() { return *_driver; }
-
-    void clear();
-
     Statistics statistics;
 
 protected:
     LssChannelDriver* _driver;
-
-    void alloc(short n);
 
     void completeTransaction();
 

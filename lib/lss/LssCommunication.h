@@ -155,10 +155,11 @@ public:
     inline LynxPacket(short _id, LssCommands _command) : id(_id), microstamp(0), command(_command), modifiers(0), hasValue(false), value(0) {}
     inline LynxPacket(short _id, LssCommands _command, int _value) : id(_id), microstamp(0), command(_command), modifiers(0), hasValue(true), value(_value) {}
 
-    LynxPacket(const char* pkt);
+    explicit LynxPacket(const char* pkt);
 
     bool operator==(const LynxPacket& rhs) const;
 
+    inline void clear() { value = 0; hasValue=false; }
     inline void set(int _value) { value=_value; hasValue=true; }
 
     inline LynxPacket& currentHaltAndHold(int _current) { modifiers |= LssModCurrentHaltAndHold; current = _current; return *this; }
