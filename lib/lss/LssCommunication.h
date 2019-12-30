@@ -50,6 +50,7 @@ typedef unsigned long LssModifiers;
 #define  LssFilterPoleCount  BIT(28)
 #define  LssDefault          BIT(29)
 #define  LssConfirm          BIT(30)
+#define  LssMaxDuty          BIT(32)
 #define  LssCommandSet       ((0xffffffffffff & ~(LssCommandModes|LssUnits)) | LssQuery)
 
 // modifiers
