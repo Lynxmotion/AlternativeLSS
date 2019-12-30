@@ -56,6 +56,7 @@ CompliantJoint joints[] = {
 int jdelay = 0;
 MovingAverage<int> qtime(2), utime(2);
 std::vector< Aggregate<unsigned long> > pkttimings;
+std::shared_ptr<LssTransaction> queryTx;
 int success = 0, failed = 0, consecutiveFailures=0;
 bool ready = true;
 unsigned long long _next_update = 0;
@@ -203,7 +204,7 @@ void setup() {
     channel.transmit(LynxPacket(254, LssLEDColor, LssLedDefault));
     channel.transmit(LynxPacket(254, LssAngularStiffness, -3));
     channel.transmit(LynxPacket(254, LssAngularHoldingStiffness, -3));
-    channel.transmitImmediate("#254MMD300\r");
+    channel.transmit(LynxPacket(254, LssMaxDuty, 300));
 
     /* Some joint setup
      */
@@ -253,14 +254,17 @@ void loop()
         return;
     ready = false;
 
-    std::vector<LynxPacket> queries;
-    for(auto j: joints) {
-        queries.emplace_back(j.joint, LssCurrent|LssQuery);
-        queries.emplace_back(j.joint, LssPosition|LssQuery|LssDegrees);
+    if(!queryTx) {
+        std::vector<LynxPacket> queries;
+        for (auto j: joints) {
+            queries.emplace_back(j.joint, LssCurrent | LssQuery);
+            queries.emplace_back(j.joint, LssPosition | LssQuery | LssDegrees);
+        }
+        queryTx = std::make_shared<LssTransaction>(queries.begin(), queries.end(), 20000);
     }
 
     auto qstart = micros();
-    channel.send(queries.begin(), queries.end())
+    channel.send(queryTx)
         .then( [qstart](const LssTransaction& tx) {
             auto packets = tx.packets();
             auto ustart = micros();
@@ -330,9 +334,7 @@ void loop()
 #endif
 
                 if(j.mmd.changed(false)) {
-                    char s[32];
-                    sprintf(s, "#%dMMD%d\r", j.joint, j.mmd.target());
-                    channel.transmitImmediate(s);
+                    updates.emplace_back(j.joint, LssAction | LssMaxDuty, j.mmd.target());
                     j.mmd.current(j.mmd.target());
                 }
 
