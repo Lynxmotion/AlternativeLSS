@@ -6,7 +6,7 @@
 
 
 CompliantJoint::CompliantJoint(short joint_lssId, std::string _name)
-    : joint(joint_lssId), name(_name), state(ComplianceLimp), stateChanged(0), current(0), currentLimit(170), cpr(0), cpr_changed(false) //, targetUpdated(false)
+    : joint(joint_lssId), name(_name), state(ComplianceLimp), stateChanged(0), current(0),gravityBias(0), currentLimit(170), cpr(0), cpr_changed(false) //, targetUpdated(false)
 {
     //fudge.filter(2);
 }
@@ -76,6 +76,16 @@ void CompliantJoint::update(unsigned long tsnow)
                 : neg_polarity
                     ? currentNegativeBias.value()
                     : 0;
+
+        auto old_currentBias = currentBias;
+
+        if(neg_polarity && gravityBias>0)
+            currentBias = gravityBias;
+        else if(pos_polarity && gravityBias<0)
+            currentBias -= gravityBias;
+
+        if(name == "J14")
+            printf("%s  %d |%c| %d %c => %d", old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '-', gravityBias, currentBias);
 
         int unbiasedCurrent = current.current() + currentBias;
         bool limit = unbiasedCurrent > currentLimit;

@@ -90,6 +90,8 @@ if(SANITIZE)
     message(STATUS "warning: enabling sanitize testing, remember to disable for deployment")
 endif()
 
+set(LYNXMOTIONLSS_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "Location of LynxmotionLSS source")
+set(LYNXMOTIONLSS_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}" CACHE PATH "Location of LynxmotionLSS binaries")
 
 add_subdirectory(lib)
 add_subdirectory(examples)

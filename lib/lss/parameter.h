@@ -40,7 +40,7 @@ public:
     inline const CT& current() const { return _current; }
     inline void current(T v) { _current = ::clamp(v, __min, __max); }
 
-    inline void current(T v, unsigned long long ts) {
+    inline void current(T v, unsigned long long /*ts*/) {
         // todo: we must adjust the mmeasurement based on when we read it
         _current = ::clamp(v, __min, __max);
     }

@@ -69,6 +69,7 @@ public:
     // bias adjusts for gravity or other known external forces and may be +/-
     Derivitive<int> currentPositiveBias, currentNegativeBias;
     int currentBias;
+    int gravityBias;
 
     int cpr;
     int cpr_changed;
