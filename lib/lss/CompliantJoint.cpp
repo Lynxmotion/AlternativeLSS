@@ -85,7 +85,7 @@ void CompliantJoint::update(unsigned long tsnow)
             currentBias -= gravityBias;
 
         if(name == "J14")
-            printf("%s  %d |%c| %d %c => %d", old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '-', gravityBias, currentBias);
+            printf("%s  %d |%c| %d => %d\n", name.c_str(), old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '-', gravityBias, currentBias);
 
         int unbiasedCurrent = current.current() + currentBias;
         bool limit = unbiasedCurrent > currentLimit;
@@ -98,7 +98,7 @@ void CompliantJoint::update(unsigned long tsnow)
         switch(state) {
             case Holding:
                 // check if we are over current limit
-                mmd.target(800);
+                mmd.target(500);
                 CPR(3);
                 if(limit) {
                     if(pos_polarity)
