@@ -80,12 +80,12 @@ void CompliantJoint::update(unsigned long tsnow)
         auto old_currentBias = currentBias;
 
         if(neg_polarity && gravityBias>0)
-            currentBias = gravityBias;
+            currentBias += gravityBias;
         else if(pos_polarity && gravityBias<0)
             currentBias -= gravityBias;
 
         if(name == "J14")
-            printf("%s  %d |%c| %d => %d\n", name.c_str(), old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '-', gravityBias, currentBias);
+            printf("%s  %d |%c| %d => %d\n", name.c_str(), old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '*', gravityBias, currentBias);
 
         int unbiasedCurrent = current.current() + currentBias;
         bool limit = unbiasedCurrent > currentLimit;
