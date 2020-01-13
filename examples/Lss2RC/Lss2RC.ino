@@ -85,6 +85,7 @@ const short hw_pin_led[] = { 3, 6, 5 };
 const short hw_pin_lss_rx = 15;
 const short hw_pin_lss_tx = 16;
 const short hw_pin_lss_tx_enable = 14;
+const short hw_pin_usb_tx_enable = 7;
 
 // the address of config within the EEPROM address space
 const int eeprom_config_start = 0x16;
@@ -107,6 +108,7 @@ bool ready_for_defaults = false;
  * Implement change of device ID (using QID and CID command, just ID not supported)
  * Implement change of baud rate (QB and CB)
  * Refactor the query/action parsing, its getting busy. Possibly break Q/C patterns into functions on LssDevice
+ * Move serial processing function to LssCommunications library
  * 
  * Brahim:
  *   [1] Please update the LSS 2RC Protocol specification to use one of the 9, 10, 11 as ID example for servo, 3,4,5 as 
@@ -421,6 +423,10 @@ void setup() {
   // copies config from program memory
   memcpy_P(&config, &default_config, sizeof(default_config));
   restore_config();   // will read from EEPROM, or write to it if it doesnt exist
+
+  // disable USB tx input line so we only receive LSS bus serial data
+  pinMode (hw_pin_usb_tx_enable, OUTPUT);
+  digitalWrite(hw_pin_usb_tx_enable, LOW);
 
   // Define pin as Input
   pinMode (A3, INPUT);
