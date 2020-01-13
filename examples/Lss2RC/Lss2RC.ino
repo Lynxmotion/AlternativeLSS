@@ -400,25 +400,14 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
 }
 
 
-SoftwareSerial SerialLSS(hw_pin_lss_rx, hw_pin_lss_tx);
-LssSerialBus lssSerial;
-
-#ifdef LSS_ON_ARDUINO_SERIAL
 LssSerialBus arduinoSerial;
-#endif
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(230400); // change me
 
-#ifdef LSS_ON_ARDUINO_SERIAL
   arduinoSerial.port = &Serial;
   arduinoSerial.tx_enable = lss_tx_enable;    // no need to control TX line on arduino serial
   arduinoSerial.pcmd = arduinoSerial.cmdbuffer;
-#endif
-
-  lssSerial.port = &SerialLSS;
-  lssSerial.tx_enable = lss_tx_enable;
-  lssSerial.pcmd = lssSerial.cmdbuffer;
 
   // start with default config
   // copies config from program memory
@@ -479,8 +468,5 @@ void serialbus_process(LssSerialBus& bus) {
 }
 
 void loop() {
-  serialbus_process(lssSerial);
-#ifdef LSS_ON_ARDUINO_SERIAL
   serialbus_process(arduinoSerial);
-#endif
 }
