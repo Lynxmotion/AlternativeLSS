@@ -2,7 +2,7 @@
 #include "LssCommunication.h"
 
 #define ACCEPT(cmdid) return (LssCommands)(cmdid);
-#define SWITCH(cmdid)  if(*pkt==0 || !isalpha(*pkt)) ACCEPT(cmdid) else switch (*pkt++)
+#define SWITCH(cmdid)  if(*pkt==0 || !isalpha(*pkt)) ACCEPT(cmdid) else switch (toupper(*pkt++))
 
 LssCommands LynxPacket::parseCommand(const char*& pkt) 
 {
