@@ -254,6 +254,8 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
 
 
   if(p.id == 254) {
+    if(query) return; // we dont allow querying on the broadcast ID
+    
     // recursively select all servos
     for(short i = 0; i < COUNTOF(config.servos); i++) {
       p.id = config.servos[i].id;
