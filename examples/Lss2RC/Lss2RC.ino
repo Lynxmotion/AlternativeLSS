@@ -261,6 +261,10 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
       p.id = config.servos[i].id;
       process_packet(bus, p);
     }
+
+    // send to LED
+    p.id = config.led.id;
+    process_packet(bus, p);
     return;
     
   } else if((n = resolve_device(config.servos, COUNTOF(config.servos), p.id)) >=0) {
@@ -372,6 +376,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
     else if(p.matches(LssLEDColor)) {
       if(!p.hasValue || p.value<0) return; // invalid value, no response
       led_standard_output( config.led.color = p.value );
+      p.id = 0; 
 
       if(flash)
         write_config(config.led, offsetof(Config, led));
