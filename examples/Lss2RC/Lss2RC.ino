@@ -283,7 +283,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
 
     // position query
     else if(p.command == (LssDegrees|LssPosition|LssQuery) && !p.hasValue) {
-      p.set(servo.read() * 10);    // must return in tenths of a degree
+      p.set(map(servo.read(), 0, 180, -900, 900));    // must return in tenths of a degree
     }
 
     // gyre direction query
@@ -299,6 +299,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
         config.servos[n].inverted = false;
       else
         return; // invalid input, dont response
+      p.id = 0;   // squelch response
 
       if(flash)
         write_config(config.servos[n], offsetof(Config, servos), n);
@@ -313,7 +314,11 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
     // set Limp mode (disabled servo)
     else if(p.command == LssLimp) {
       servo.detach();
+      p.id = 0;   // squelch response
     }
+    
+    // unknown command, ignore it
+    else p.id = 0;
 
   } else if((n = resolve_device(config.sensors, COUNTOF(config.sensors), p.id)) >=0) {
     int pin = hw_pin_sensors[n];
@@ -322,6 +327,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
     if(p.command == (LssDegrees|LssPosition) && p.hasValue) {
       // send the command to the servo
       digitalWrite(pin, p.value);
+      p.id = 0;   // squelch response
     } 
 
     // sensor query
@@ -343,6 +349,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
     // todo: this can be refactored since we also do it above
     else if(p.matches(LssGyreDirection|LssQuery)) {
       p.set(config.sensors[n].inverted ? -1 : +1);
+      p.id = 0;   // squelch response
     }
 
     // set gyre direction
