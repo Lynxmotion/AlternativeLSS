@@ -360,15 +360,22 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
         config.sensors[n].inverted = false;
       else
         return; // invalid input, dont response
+      p.id = 0;   // squelch response
     }
 
+    // set the sensor mode
     else if (p.matches(LssAngularRange)) {
       if(query)
         p.set(config.sensors[n].mode);
       else if(p.hasValue) {
         config.sensors[n].mode = p.value;
+        p.id = 0;   // squelch response
       }
     }
+
+    // unknown command, ignore it
+    else p.id = 0;
+
 
     if(!query && flash)
       write_config(config.sensors[n], offsetof(Config, sensors), n);
@@ -394,7 +401,11 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
     } else if(ready_for_defaults && p.matches(LssConfirm)) {
       memcpy_P(&config, &default_config, sizeof(default_config));
       write_config();
+      p.id = 0; 
     }
+
+    // unknown command, ignore it
+    else p.id = 0;
     
   } else
     return; // not a known device, do not reply
