@@ -271,7 +271,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
         servo.attach(hw_pin_servos[n]);
         
       // send the command to the servo
-      servo.write(p.value / 10);   // unfortunately our RC precision is only in integral degrees
+      servo.write(map(p.value, -900, 900, 0, 180));   // unfortunately our RC precision is only in integral degrees
       p.id = 0;   // squelch response
     }
 
@@ -403,7 +403,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
 LssSerialBus arduinoSerial;
 
 void setup() {
-  Serial.begin(230400); // change me
+  Serial.begin(115200);
 
   arduinoSerial.port = &Serial;
   arduinoSerial.tx_enable = lss_tx_enable;    // no need to control TX line on arduino serial
