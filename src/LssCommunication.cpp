@@ -276,7 +276,7 @@ char* LynxPacket::serialize(char* out) const
 
   // use platform to convert value
   if(hasValue) {
-    if(NULL == itoa(value, out, 10))
+    if(NULL == ltoa(value, out, 10))
       return NULL;
     while(*out) out++;  // skip to end
   } else
@@ -297,7 +297,7 @@ bool LynxPacket::parse(const char* pkt)
   short _id=0;
   LssCommands _command=LssInvalid;
   bool _hasValue=false;
-  int _value=0;
+  long _value=0;
 #if defined(LSS_LOGGING)
   const char* begin = pkt;
 #endif

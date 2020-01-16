@@ -15,6 +15,7 @@
 #include "aggregate.h"
 #endif
 
+#define LssBroadcastAddress   (254)
 
 #define BIT(n) (((unsigned long)1)<<n)
 
@@ -56,7 +57,9 @@ typedef unsigned long LssCommands;
 #define  LssFirstPosition    BIT(26)
 #define  LssDefault          BIT(27)
 #define  LssConfirm          BIT(28)
+#define  LssReset            BIT(30)
 #define  LssCommandSet       ((0xffffffff & ~(LssCommandModes|LssUnits|LssModifiers)) | LssQuery)
+
 
 // commands that are part of servo configuration
 // you probably dont need these for normal control operations
@@ -99,17 +102,17 @@ class LynxPacket {
     short id;
     LssCommands command;
     bool hasValue;
-    int value;
+    long value;
 
     inline LynxPacket() : id(0), command(LssInvalid), hasValue(false), value(0) {}
     inline LynxPacket(short _id, LssCommands _command) : id(_id), command(_command), hasValue(false), value(0) {}
-    inline LynxPacket(short _id, LssCommands _command, int _value) : id(_id), command(_command), hasValue(true), value(_value) {}
+    inline LynxPacket(short _id, LssCommands _command, long _value) : id(_id), command(_command), hasValue(true), value(_value) {}
 
     LynxPacket(const char* pkt);
 
     bool operator==(const LynxPacket& rhs) const;
 
-    inline void set(int _value) { value=_value; hasValue=true; }
+    inline void set(long _value) { value=_value; hasValue=true; }
 
     bool parse(const char* pkt);
 
