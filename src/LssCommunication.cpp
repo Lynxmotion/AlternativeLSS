@@ -38,8 +38,8 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'A': SWITCH(LssInvalid) {
       case 'U': SWITCH(LssInvalid) {
       case 'L': SWITCH(LssInvalid) {
-      case 'T': SWITCH(LssDefault) {
-      }}}}}}
+      case 'T': ACCEPT(LssDefault);
+      }}}}}
     }
     case 'A': SWITCH(LssInvalid) {
       case 'R': ACCEPT(LssAngularRange);
@@ -94,14 +94,23 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'C': ACCEPT(LssQuery|LssCurrent);
     }
 
+    case 'R': SWITCH(LssInvalid) {
+      case 'S': ACCEPT(LssReset);
+      case 'E': SWITCH(LssInvalid) {
+      case 'S': SWITCH(LssInvalid) {
+      case 'E': SWITCH(LssInvalid) {
+      case 'T': ACCEPT(LssReset) {
+      }}}}
+    }
+
     case 'C': SWITCH(LssInvalid) {
       case 'O': SWITCH(LssConfig|LssOriginOffset) {
         case 'N': SWITCH(LssInvalid) {
         case 'F': SWITCH(LssInvalid) {
         case 'I': SWITCH(LssInvalid) {
         case 'R': SWITCH(LssInvalid) {
-        case 'M': SWITCH(LssConfirm) {
-        }}}}}
+        case 'M': ACCEPT(LssConfirm);
+        }}}}
       }
       case 'A': SWITCH(LssInvalid) {
         case 'R': ACCEPT(LssConfig|LssAngularRange);
