@@ -120,6 +120,16 @@ class LynxPacket {
 
 	inline bool matches(LssCommands bits) const { return (command & bits) == bits; }
 
+	inline bool between(long min, long max) const { return hasValue && value >= min && value <= max; }
+
+	inline bool broadcast() const { return id == 254; }
+
+	// true if command is a query command
+	inline bool query() const { return (command & LssQuery) >0; }
+
+	// true if command requests value be written to flash (Config prefix)
+	inline bool flash() const { return (command & LssConfig) >0; }
+
     static LssCommands parseCommand(const char*& pkt);
     
     // converts the cmd into a string command code and places the result in 'out'

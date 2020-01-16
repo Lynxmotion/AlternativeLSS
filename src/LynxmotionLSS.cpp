@@ -82,13 +82,6 @@ void LynxChannel::update()
       LSS_LOGGING.println(buffer);
 #endif
       if (buffer[0] == '*') {
-        // todo: remove me....this was to capture a particular occurance of a corrupt packet due to servo issue
-        if (buffer[1] == '2' && buffer[2] == 'Q' && buffer[2] == 'D' && buffer[2] == 'L') {
-          OSCOPE_TRIGGER(1)
-          Serial.print("WARNING  ");
-          Serial.println(buffer);
-        }
-
         // dispatch packet to destination servo (if we have it)
         LynxPacket packet(&buffer[1]);
         for(int i=0; i<count; i++) {
