@@ -301,12 +301,14 @@ void write_config_object(const T& obj) {
    Ex: #5LED3<cr>
   
    */
-  {LssLEDColor | LssQuery,            LssNone, [](LynxPacket& p) {
+  {LssLEDColor | LssQuery,            LssNone,
+  [](LynxPacket& p) {
     // return the led color
     p.set(config.led.color); 
     return LssReply;
   }},  
-  {LssLEDColor | LssAction|LssConfig, LssNone, [](LynxPacket& p) {
+  {LssLEDColor | LssAction|LssConfig, LssNone,
+  [](LynxPacket& p) {
     // set the led color
     if(!p.between(0, LssWhite)) return LssError; // invalid value, no response
     led_standard_output( config.led.color = p.value );
@@ -343,12 +345,14 @@ void write_config_object(const T& obj) {
    Sending this command will change the baud rate associated with servo ID 5 to 9600 bits per second.
    
    */
-  {LssBaudRate | LssQuery,            LssNone, [](LynxPacket& p) {
+  {LssBaudRate | LssQuery,            LssNone,
+  [](LynxPacket& p) {
     // return the baudrate
     p.set(config.io.baudrate); 
     return LssReply;
   }},  
-  {LssBaudRate | LssConfig,           LssNone, [](LynxPacket& p) {
+  {LssBaudRate | LssConfig,           LssNone,
+  [](LynxPacket& p) {
     if(p.between(300, 2000000)) {
       // set the baudrate
       config.io.baudrate = p.value;
@@ -389,13 +393,13 @@ void write_config_object(const T& obj) {
    servos position has reached 13.2 degrees.
 
    */
-  {LssPosition|LssDegrees | LssQuery,            LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) { 
+  {LssPosition|LssDegrees | LssQuery,            LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     p.set(map(servo.read(), 0, 180, -900, 900));
     return LssReply;
   }},
-  {LssPosition|LssDegrees | LssAction,           LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) { 
+  {LssPosition|LssDegrees | LssAction,           LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     // ensure the servo is on
     if(!servo.attached())
       servo.attach(pin);
@@ -430,13 +434,13 @@ void write_config_object(const T& obj) {
    at one of the endpoints, it may return a negative number if it is a fraction of a degree beyond the position).
 
    */
-  {LssPosition|LssPulse | LssQuery,            LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) { 
+  {LssPosition|LssPulse | LssQuery,            LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     p.set(servo.readMicroseconds());
     return LssReply;
   }},
-  {LssPosition|LssPulse | LssAction,           LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) { 
+  {LssPosition|LssPulse | LssAction,           LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     // ensure the servo is on
     if(!servo.attached())
       servo.attach(pin);
@@ -459,8 +463,8 @@ void write_config_object(const T& obj) {
    Ex: #5L<cr>
 
    */
-  {LssLimp | LssAction,               LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) { 
+  {LssLimp | LssAction,               LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     // future: we could query using servo.attached() method
     servo.detach();
     return LssNoReply;
@@ -494,8 +498,8 @@ void write_config_object(const T& obj) {
    Ex: #203D800
 
    */
-  {LssPosition|LssDegrees | LssQuery,            LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) { 
+  {LssPosition|LssDegrees | LssQuery,            LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // convert the input and set as output value
     p.set(
       sensor_conversion(
@@ -506,13 +510,13 @@ void write_config_object(const T& obj) {
     );
     return LssReply; 
   }},
-  {LssPosition|LssPulse | LssQuery,            LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) { 
+  {LssPosition|LssPulse | LssQuery,            LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // read raw input from the pin
     p.set(analogRead(pin));
     return LssReply; 
   }},
-  {LssPosition | LssAction,           LssNone, 
+  {LssPosition | LssAction,           LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     pinMode(pin, OUTPUT);
     if(pin == A4)
@@ -529,12 +533,12 @@ void write_config_object(const T& obj) {
    analog pins are set as simple analog inputs but some sensors like the Sharp Infrared GP2Y are natively supported.
    
    */
-  {LssAngularRange | LssQuery,        LssNone, 
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) { 
+  {LssAngularRange | LssQuery,        LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     p.set(dev.mode);
     return LssReply; 
   }},
-  {LssAngularRange | LssAction|LssConfig,       LssNone, 
+  {LssAngularRange | LssAction|LssConfig,       LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // ensure sensor mode is valid, otherwise default to Analog mode
     dev.mode = p.between(0, LastSensorMode) ? p.value : Analog;
@@ -548,7 +552,7 @@ void write_config_object(const T& obj) {
    * We specify LssMatchAny so the command will trigger on ANY of the command names instead of requiring ALL to match. So the 
    * command list here specifies all commands that support setting the config option in non-volatile flash.
    */
-  {LssAngularRange | LssConfig,           LssMatchAny, 
+  {LssAngularRange | LssConfig,           LssMatchAny,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) { write_config_object(dev); return LssNoReply; }}
 });
 
@@ -589,11 +593,13 @@ void write_config_object(const T& obj) {
    cycled in order for the new ID to take effect.
    
    */
-  {LssID | LssQuery,       LssNoBroadcast, [](LynxPacket& p, LssDevice& dev) {
+  {LssID | LssQuery,       LssNoBroadcast,
+  [](LynxPacket& p, LssDevice& dev) {
     p.set(dev.id); 
     return LssReply;
   }},  
-  {LssID | LssConfig,       LssNoBroadcast, [](LynxPacket& p, LssDevice& dev) {
+  {LssID | LssConfig,       LssNoBroadcast,
+  [](LynxPacket& p, LssDevice& dev) {
     if(p.flash() && p.between(0, LssBroadcastAddress-1))
       dev.id = p.value;   // only update object, flash handler will follow-up to write to flash
     return LssNoReply;
@@ -622,11 +628,13 @@ void write_config_object(const T& obj) {
     This changes the gyre direction as described above and also writes to EEPROM.
     
    */
-  {LssGyreDirection | LssQuery,                     LssNone, [](LynxPacket& p, LssDevice& dev) { 
+  {LssGyreDirection | LssQuery,                     LssNone,
+  [](LynxPacket& p, LssDevice& dev) {
     p.set(dev.inverted ? -1 : +1);
     return LssReply;
   }},
-  {LssGyreDirection | LssAction|LssConfig,          LssNone, [](LynxPacket& p, LssDevice& dev) { 
+  {LssGyreDirection | LssAction|LssConfig,          LssNone,
+  [](LynxPacket& p, LssDevice& dev) {
     if(p.value == -1)
       dev.inverted = true;
     else if(p.value == 1)
@@ -647,7 +655,8 @@ void write_config_object(const T& obj) {
    for a bit. See Session, note #2 for more details.
    
    */
-  {LssReset | LssAction,                            LssNone, [](LynxPacket& p, LssDevice& dev) {
+  {LssReset | LssAction,                            LssNone,
+  [](LynxPacket& p, LssDevice& dev) {
     reset();
     return LssNoReply;
   }},
