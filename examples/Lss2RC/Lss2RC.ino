@@ -280,10 +280,39 @@ void write_config_object(const T& obj) {
  * You can easily add more handlers or devices. Start by cut-and-pasting existing code and modifying
  * with the new command match or handler code.
  * 
- */
-
-
-/*
+ * Each Packet Command Handler has the following syntax:
+ *
+ * { <Command-BitMask> | <Command-Mode = LssQuery|LssAction|LssConfig>,
+ *   <LssNone or LssNoBroadcast|LssMatchAny>,
+ *   <callback-function>
+ * }
+ *
+ * Command-BitMask
+ * The command to match such as LssPosition, LssLEDColor, LssBaudRate, LssID or any of the command
+ * bits as specified in Arduino/library/LynxmotionLSS/src/LssCommunication.h header. In some cases
+ * such as LssPosition you may also need to add the units such as LssDegrees, LssPulse or LssRPM.
+ * By default all command bits must match but you can match on any command bits by specifying the
+ * LssMatchAny flag.
+ *
+ *
+ * Command Mode (LssQuery|LssAction|LssConfig)
+ * Match packets based on if they are queries, action and if they have the config modifier to indicate
+ * they should write to non-volatile flash. It is ok to specify multiple modes and packets will
+ * match if any of the mode bits match.
+ *
+ * Match Flags (LssNoBroadcast|LssMatchAny)
+ * Control how packet matching is performed.
+ * LssNoBroadcast - By default handlers will answer broadcast messages, you can limit a handler to
+ *                  only it's own LSS bus ID using this flag.
+ * LssMatchAny    - By default all Handler command bits must match the packet command bits but by
+ *                  using this flag you can indicate you want to match if ANY of the handler command
+ *                  bits are set in the packet command bits. For example, this is used to handle the
+ *                  Config flash writes for multiple commands in one handler. Since multiple handlers
+ *                  may match and be invoked on a packet the first handler updates the config structure,
+ *                  and the second handler does the write to flash.
+ *
+ *
+ *
  * SYS handlers
  * These handlers answer LED Color and other 2IO global config parameters like Baudrate. These are
  * configured on LSS bus ID 207 by default but can be changed via the CID command.
@@ -686,29 +715,39 @@ short resolve_device(const LssDevice* arr, short arrN,  unsigned short id) {
   return -1;  // no device found
 }
 
+
+/*
+ * Given a new packet, determine what device it is intended for and call the packet handlers above with appropriate arguments.
+ */
 void process_packet(LssSerialBus& bus, LynxPacket p) {
   short n;
   short r = LssNoReply;
   LssDevice* dev = nullptr;
+
   if((n = resolve_device(config.servos, COUNTOF(config.servos), p.id)) >=0) {
-    dev = &config.servos[n];
-    Servo& servo = servos[n];
+    // packet is intended for a servo
+    dev = &config.servos[n];                      // servo config struct
+    Servo& servo = servos[n];                     // physical servo connection
     r = ServoHandlers(p, *dev, hw_pin_servos[n], servo);
   } else if((n = resolve_device(config.sensors, COUNTOF(config.sensors), p.id)) >=0) {
-    dev = &config.sensors[n];
-    unsigned short pin = hw_pin_sensors[n];
+    // packet is intended for a sensor or GPIO
+    dev = &config.sensors[n];                     // sensor config  struct
+    unsigned short pin = hw_pin_sensors[n];       // physical hardware pin
     r = SensorHandlers(p, *dev, pin);
   } else if(p.id == config.led.id) {
-    dev = &config.led;
+    // packet is intended for the LED or 2IO module
+    // althought we use the LED config struct, the handler may reference the IO Config object globally
+    dev = &config.led;                            // LED config
     r = ModuleHandlers(p);
   }
 
+  // if we didnt match any handler then see if our command device handlers can
   if(r == LssNoHandler && dev) {
-    // try common handlers
     r = CommonDeviceHandlers(p, *dev);
   }
 
-  // by default we print the response back
+  // The handler may update the packet for reply transmission
+  // if so indicated, print the packet back to master
   if(r==LssReply && p.id >0) {
     if(bus.tx_enable)
       bus.tx_enable(true);
