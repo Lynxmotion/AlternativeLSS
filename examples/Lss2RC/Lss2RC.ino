@@ -390,6 +390,41 @@ void write_config_object(const T& obj) {
       Serial.begin(config.io.baudrate);   // reset baud rate now
     }
     return LssNoReply;
+  }},
+
+  /*
+   * Reset Module
+   *
+   Ex: #5RESET<cr> or #5RS<cr>
+
+   This command does a "soft reset" (no power cycle required) and reverts all commands to those stored in EEPROM (i.e. configuration 
+   commands).
+   Note: after a RESET command is received the 2IO module will restart and perform initilization again, making it unavailable on the bus
+   for a bit. See Session, note #2 for more details.
+
+   */
+  {LssReset | LssAction,                            LssNone,
+  [](LynxPacket& p) {
+    reset();
+    return LssNoReply;
+  }},
+
+  /*
+   * Reset Config on Module
+   *
+   Ex: #5DEFAULT<cr>
+
+   This command clears EEPROM contents to factory default and does a "soft reset" (no power cycle required).
+   Note: after a RESET command is received the 2IO module will restart and perform initilization again, making it unavailable on the bus
+   for a bit. See Session, note #2 for more details.
+
+   */
+  {LssDefault | LssAction,                          LssNone,
+  [](LynxPacket& p) {
+    config = default_config;      // reset to defaults
+    write_config();               // write defaults to EEPROM
+    reset();                      // soft reset
+    return LssNoReply;
   }}
 });
 
@@ -671,23 +706,6 @@ void write_config_object(const T& obj) {
     else
       return LssNoReply; // invalid input, dont response
     return LssNoReply; 
-  }},
-
-  /*
-   * Reset Module
-   * 
-   Ex: #5RESET<cr> or #5RS<cr>
-
-   This command does a "soft reset" (no power cycle required) and reverts all commands to those stored in EEPROM (i.e. configuration 
-   commands).
-   Note: after a RESET command is received the 2IO module will restart and perform initilization again, making it unavailable on the bus
-   for a bit. See Session, note #2 for more details.
-   
-   */
-  {LssReset | LssAction,                            LssNone,
-  [](LynxPacket& p, LssDevice& dev) {
-    reset();
-    return LssNoReply;
   }},
   
   /*
