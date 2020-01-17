@@ -352,7 +352,7 @@ void write_config_object(const T& obj) {
    Ex: #5LED3<cr>
   
    */
-  {LssLEDColor | LssQuery,            LssNone,
+  {LssLEDColor | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p) {
     // return the led color
     p.set(config.led.color); 
@@ -396,7 +396,7 @@ void write_config_object(const T& obj) {
    Sending this command will change the baud rate associated with servo ID 5 to 9600 bits per second.
    
    */
-  {LssBaudRate | LssQuery,            LssNone,
+  {LssBaudRate | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p) {
     // return the baudrate
     p.set(config.io.baudrate); 
@@ -478,7 +478,7 @@ void write_config_object(const T& obj) {
    servos position has reached 13.2 degrees.
 
    */
-  {LssPosition|LssDegrees | LssQuery,            LssNone,
+  {LssPosition|LssDegrees | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     p.set(map( dev.inverted ? -servo.read() : servo.read(), 0, 180, -900, 900));
     return LssReply;
@@ -519,7 +519,7 @@ void write_config_object(const T& obj) {
    at one of the endpoints, it may return a negative number if it is a fraction of a degree beyond the position).
 
    */
-  {LssPosition|LssPulse | LssQuery,            LssNone,
+  {LssPosition|LssPulse | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
     p.set(servo.readMicroseconds());
     return LssReply;
@@ -583,19 +583,19 @@ void write_config_object(const T& obj) {
    Ex: #203D800
 
    */
-  {LssPosition|LssDegrees | LssQuery,            LssNone,
+  {LssPosition|LssDegrees | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // convert the input and set as output value
     p.set(
       sensor_conversion(
         analogRead(pin),                // read input from pin
-        dev.mode,         // type of sensor
+        dev.mode,                       // type of sensor
         dev.inverted
       )
     );
     return LssReply; 
   }},
-  {LssPosition|LssPulse | LssQuery,            LssNone,
+  {LssPosition|LssPulse | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // read raw input from the pin
     p.set(analogRead(pin));
@@ -618,7 +618,7 @@ void write_config_object(const T& obj) {
    analog pins are set as simple analog inputs but some sensors like the Sharp Infrared GP2Y are natively supported.
    
    */
-  {LssAngularRange | LssQuery,        LssNone,
+  {LssAngularRange | LssQuery,        LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     p.set(dev.mode);
     return LssReply; 
@@ -682,7 +682,7 @@ void write_config_object(const T& obj) {
   [](LynxPacket& p, LssDevice& dev) {
     p.set(dev.id); 
     return LssReply;
-  }},  
+  }},
   {LssID | LssConfig,       LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev) {
     if(p.flash() && p.between(0, LssBroadcastAddress-1))
@@ -713,7 +713,7 @@ void write_config_object(const T& obj) {
     This changes the gyre direction as described above and also writes to EEPROM.
     
    */
-  {LssGyreDirection | LssQuery,                     LssNone,
+  {LssGyreDirection | LssQuery,                     LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev) {
     p.set(dev.inverted ? -1 : +1);
     return LssReply;
@@ -798,6 +798,36 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
       bus.tx_enable(false);
     }
   }
+}
+
+/*
+ * Process a packet that was sent with the LSS Broadcast ID.
+ * for broadcasts we must recurse with each device we know about.
+ *
+ */
+void process_broadcast_packet(LssSerialBus& bus, LynxPacket p) {
+  short n;
+  short r = LssNoReply;
+  LssDevice* dev = nullptr;
+
+  // servos
+  for(int n=0; n<COUNTOF(config.servos); n++) {
+    dev = &config.servos[n];                      // servo config struct
+    Servo& servo = servos[n];                     // physical servo connection
+    if(ServoHandlers(p, *dev, hw_pin_servos[n], servo) == LssNoHandler)
+      CommonDeviceHandlers(p, *dev);
+  }
+
+  // sensors
+  for(int n=0; n<COUNTOF(config.sensors); n++) {
+    dev = &config.sensors[n];                      // servo config struct
+    if(SensorHandlers(p, *dev, hw_pin_sensors[n]) == LssNoHandler)
+      CommonDeviceHandlers(p, *dev);
+  }
+
+  // led
+  if(ModuleHandlers(p) == LssNoHandler)
+    CommonDeviceHandlers(p, config.led);
 }
 
 /*
@@ -896,7 +926,10 @@ void serialbus_process(LssSerialBus& bus) {
         // parse the LSS command
         LynxPacket pkt;
         if(pkt.parse(&bus.cmdbuffer[1])) {
-          process_packet(bus, pkt);
+          if(pkt.id == LssBroadcastAddress)
+            process_broadcast_packet(bus, pkt);
+          else
+            process_packet(bus, pkt);
         }
       }
 
