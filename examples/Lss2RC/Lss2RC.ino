@@ -111,6 +111,10 @@ const unsigned short hw_pin_lss_tx = 16;
 const unsigned short hw_pin_lss_tx_enable = 14;
 const unsigned short hw_pin_usb_tx_enable = 7;
 
+// hardware pin to monitor at startup, if LOW for ~6 seconds will then issue firmware reset
+// The LSS RX pin (pin 0) or MISO pin is recommended. The MISO pin is found on the bottom of the PCB as a TEST point pin
+const unsigned short hw_firmware_reset_pin = 0;
+
 // the address of config within the EEPROM address space
 const int eeprom_config_start = 0x16;
 
@@ -239,6 +243,11 @@ void write_config() {
   char hdr[4] = {'2', 'R', 'C', EEPROM_CONFIG_VER};
   EEPROM.put(eeprom_config_start, hdr);
   EEPROM.put(eeprom_config_start+4, config);
+}
+
+void write_default_config() {
+  memcpy_P(&config, &default_config, sizeof(default_config));        // reset to defaults
+  write_config();                                                    // write defaults to EEPROM
 }
 
 /*
@@ -434,9 +443,8 @@ void write_config_object(const T& obj) {
    */
   {LssDefault | LssAction,                          LssNone,
   [](LynxPacket& p) {
-    config = default_config;      // reset to defaults
-    write_config();               // write defaults to EEPROM
-    reset();                      // soft reset
+    write_default_config();
+    reset();                                                           // soft reset
     return LssNoReply;
   }}
 });
@@ -792,22 +800,49 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
   }
 }
 
+/*
+ * test if user is requesting a factory reset
+ */
+void test_factory_reset() {
+  delay(5);
+
+  while( digitalRead(hw_firmware_reset_pin) == LOW ) {
+    unsigned long now = millis();
+    if(now > 1000) {
+      // signal we are going to factory reset
+      unsigned long phase = (now / 250) % 3;
+      switch(phase) {
+        case 0: led_standard_output(LssRed); break;
+        case 1: led_standard_output(LssGreen); break;
+        case 2: led_standard_output(LssBlue); break;
+      }
+
+      if(now > 6000) {
+        // enough warning, we write defaults and reset!
+        write_default_config();
+
+        for(int i=0; i<3; i++) {
+          led_standard_output(LssWhite);
+          delay(500);
+          led_standard_output(LssLedOff);
+          delay(500);
+          wdt_reset();
+        }
+
+        reset();
+      }
+    }
+
+    wdt_reset();    // dont let the watchdog timer stop us
+  }
+}
 
 LssSerialBus arduinoSerial;
 
 void setup() {
-  // start with default config
-  // copies config from program memory
-  memcpy_P(&config, &default_config, sizeof(default_config));
-  restore_config();   // will read from EEPROM, or write to it if it doesnt exist
-
-  // configure the hardware serial port
-  Serial.begin( baudrate_is_supported(config.io.baudrate) ? config.io.baudrate : 115200);
-
-  //Serial.begin(230400);
-  arduinoSerial.port = &Serial;
-  arduinoSerial.tx_enable = lss_tx_enable;
-  arduinoSerial.pcmd = arduinoSerial.cmdbuffer;
+  // configure the TX enable tr-state buffer
+  pinMode (hw_pin_lss_tx_enable, OUTPUT);
+  lss_tx_enable(false);
 
   // disable USB tx input line so we only receive LSS bus serial data
   pinMode (hw_pin_usb_tx_enable, OUTPUT);
@@ -822,13 +857,29 @@ void setup() {
   pinMode (hw_pin_led[0], OUTPUT);
   pinMode (hw_pin_led[1], OUTPUT);
   pinMode (hw_pin_led[2], OUTPUT);
-  led_standard_output(config.led.color);
 
   analogReference(DEFAULT);
 
-  // configure the TX enable tr-state buffer
-  pinMode (hw_pin_lss_tx_enable, OUTPUT);
-  lss_tx_enable(false);
+  // hold a servo pin LOW to indicate wish for a factory reset
+  test_factory_reset();
+
+  // start with default config
+  // copies config from program memory
+  memcpy_P(&config, &default_config, sizeof(default_config));
+  restore_config();   // will read from EEPROM, or write to it if it doesnt exist
+
+  // configure the hardware serial port
+  Serial.begin( baudrate_is_supported(config.io.baudrate)
+      ? config.io.baudrate      // eeprom contained valid baudrate
+      : 115200L                 // baudrate was invalid, use default
+  );
+
+  // restore LED color
+  led_standard_output(config.led.color);
+
+  arduinoSerial.port = &Serial;
+  arduinoSerial.tx_enable = lss_tx_enable;
+  arduinoSerial.pcmd = arduinoSerial.cmdbuffer;
 }
 
 
