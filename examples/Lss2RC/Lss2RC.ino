@@ -424,7 +424,7 @@ void write_config_object(const T& obj) {
    */
   {LssPosition|LssDegrees | LssQuery,            LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
-    p.set(map(servo.read(), 0, 180, -900, 900));
+    p.set(map( dev.inverted ? -servo.read() : servo.read(), 0, 180, -900, 900));
     return LssReply;
   }},
   {LssPosition|LssDegrees | LssAction,           LssNone,
@@ -434,7 +434,7 @@ void write_config_object(const T& obj) {
       servo.attach(pin);
       
     // send the command to the servo
-    servo.write(map(p.value, -900, 900, 0, 180));   // unfortunately our RC precision is only in integral degrees
+    servo.write(map(dev.inverted ? -p.value : p.value, -900, 900, 0, 180));   // unfortunately our RC precision is only in integral degrees
     return LssNoReply;
   }},
 
