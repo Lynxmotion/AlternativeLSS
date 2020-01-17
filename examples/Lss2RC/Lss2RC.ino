@@ -81,6 +81,9 @@ const Config default_config PROGMEM = {
   }
 };
 
+// supported baud rates of the 2IO
+const long SupportedBaudrates[] = {9600, 19200, 38400, 57600, 115200, 230400, 250000, 460800, 500000 };
+
 
 // stores our active configuration
 // this is loaded from EEPROM or otherwise uses default_config
@@ -204,6 +207,16 @@ short sensor_conversion(short input, short mode, bool inverted) {
     case GP2Y0A02YK0F: return constrain(94620 / (input - 17), 190, 1510);
     default: return input;  // no translation
   }
+}
+
+/*
+ * Returns true if the given baudrate is one of the LSS/2IO supported rates.
+ */
+bool baudrate_is_supported(long baudrate) {
+  for(int i=0; i<COUNTOF(SupportedBaudrates); i++)
+    if(SupportedBaudrates[i] == baudrate)
+      return true;
+  return false;
 }
 
 /*
@@ -382,7 +395,7 @@ void write_config_object(const T& obj) {
   }},  
   {LssBaudRate | LssConfig,           LssNone,
   [](LynxPacket& p) {
-    if(p.between(300, 2000000)) {
+    if(baudrate_is_supported(p.value)) {
       // set the baudrate
       config.io.baudrate = p.value;
       if(p.flash())
@@ -789,7 +802,8 @@ void setup() {
   restore_config();   // will read from EEPROM, or write to it if it doesnt exist
 
   // configure the hardware serial port
-  Serial.begin(config.io.baudrate);
+  Serial.begin( baudrate_is_supported(config.io.baudrate) ? config.io.baudrate : 115200);
+
   //Serial.begin(230400);
   arduinoSerial.port = &Serial;
   arduinoSerial.tx_enable = lss_tx_enable;
