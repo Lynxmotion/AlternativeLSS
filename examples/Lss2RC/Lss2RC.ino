@@ -52,7 +52,7 @@ typedef struct _Config {
   LssDevice sensors[3];
 } Config;
 
-const char EEPROM_CONFIG_VER = '4';   // update this number if eeprom config layout changes
+const char EEPROM_CONFIG_VER = '1';   // update this number if eeprom config layout changes
 
 const Config default_config PROGMEM = {
   // 2IO
