@@ -809,7 +809,8 @@ void process_broadcast_packet(LssSerialBus& bus, LynxPacket p) {
  * test if user is requesting a factory reset
  */
 void test_factory_reset() {
-  delay(5);
+  pinMode(hw_firmware_reset_pin, INPUT_PULLUP);
+  delay(15);    // time for pullup to bring the line HIGH
 
   while( digitalRead(hw_firmware_reset_pin) == LOW ) {
     unsigned long now = millis();
@@ -840,6 +841,7 @@ void test_factory_reset() {
 
     wdt_reset();    // dont let the watchdog timer stop us
   }
+  pinMode(hw_firmware_reset_pin, INPUT);
 }
 
 LssSerialBus arduinoSerial;
@@ -859,6 +861,7 @@ void setup() {
   pinMode (A5, INPUT);
 
   // configure LED pins as outputs
+  led_standard_output(LssLedOff);
   pinMode (hw_pin_led[0], OUTPUT);
   pinMode (hw_pin_led[1], OUTPUT);
   pinMode (hw_pin_led[2], OUTPUT);
