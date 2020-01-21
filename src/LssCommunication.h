@@ -57,6 +57,7 @@ typedef unsigned long LssCommands;
 #define  LssFirstPosition    BIT(26)
 #define  LssDefault          BIT(27)
 #define  LssConfirm          BIT(28)
+#define  LssAnalog           BIT(29)
 #define  LssReset            BIT(30)
 #define  LssCommandSet       ((0xffffffff & ~(LssCommandModes|LssUnits|LssModifiers)) | LssQuery)
 

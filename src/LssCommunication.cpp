@@ -61,7 +61,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     
     case 'Q': SWITCH(LssQuery) {
       case 'O': ACCEPT(LssQuery|LssOriginOffset);
-      case 'A': SWITCH(LssInvalid) {
+      case 'A': SWITCH(LssQuery|LssAnalog) {
         case 'R': ACCEPT(LssQuery|LssAngularRange);
         case 'S': ACCEPT(LssQuery|LssAngularStiffness);
       }
@@ -192,6 +192,9 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
           break;
         case LssTemperature:
           *pout++ = 'T';
+          break;
+        case LssAnalog:
+          *pout++ = 'A';
           break;
         case LssAngularRange:
           *pout++ = 'A';
