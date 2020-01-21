@@ -583,50 +583,25 @@ void write_config_object(const T& obj) {
    Ex: #203D800
 
    */
-  {LssPosition|LssDegrees | LssQuery,            LssNoBroadcast,
+  {LssAnalog | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     // convert the input and set as output value
     p.set(
       sensor_conversion(
-        analogRead(pin),                // read input from pin
-        dev.mode,                       // type of sensor
+        analogRead(pin),                                // read input from pin
+        p.between(0, LastSensorMode) ? p.value : 0,     // type of sensor
         dev.inverted
       )
     );
     return LssReply; 
   }},
-  {LssPosition|LssPulse | LssQuery,            LssNoBroadcast,
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
-    // read raw input from the pin
-    p.set(analogRead(pin));
-    return LssReply; 
-  }},
-  {LssPosition | LssAction,           LssNone,
+  {LssAnalog | LssAction,           LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     pinMode(pin, OUTPUT);
     if(pin == A4)
       digitalWrite(pin, p.value ? HIGH : LOW);
     else
       analogWrite(pin, p.value);
-    return LssNoReply; 
-  }},
-
-  /*
-   * Set Sensor Mode
-   * 
-   This command is borrowed from the servo AngularRange (AR) command to set the sensor attached to an 2IO analog pin. By default
-   analog pins are set as simple analog inputs but some sensors like the Sharp Infrared GP2Y are natively supported.
-   
-   */
-  {LssAngularRange | LssQuery,        LssNoBroadcast,
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
-    p.set(dev.mode);
-    return LssReply; 
-  }},
-  {LssAngularRange | LssAction|LssConfig,       LssNone,
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
-    // ensure sensor mode is valid, otherwise default to Analog mode
-    dev.mode = p.between(0, LastSensorMode) ? p.value : Analog;
     return LssNoReply; 
   }},
 
