@@ -372,8 +372,7 @@ void write_config_object(const T& obj) {
   {LssLEDColor | LssAction|LssConfig, LssNone,
   [](LynxPacket& p) {
     // set the led color
-    if(!p.between(0, LssWhite)) return LssError; // invalid value, no response
-    led_standard_output( config.led.color = p.value );
+    led_standard_output( config.led.color = p.between(0, LssWhite) ? p.value : LssLedOff );
     if(p.flash())
       write_config_object(config.led);
     return LssNoReply;  
