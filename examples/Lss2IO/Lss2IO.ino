@@ -456,6 +456,18 @@ void write_config_object(const T& obj) {
     write_default_config();
     reset();                                                           // soft reset
     return LssNoReply;
+  }},
+
+  /*
+   * Returns model string
+   *
+   Ex: #207QMS<cr>
+   Returns:  *207QMSLSS-2IO-LED
+   */
+  {LssModel | LssQuery,                          LssNone,
+  [](LynxPacket& p) {
+    transmit_model(config.led.id, "LED", false);
+    return LssNoReply;
   }}
 });
 
@@ -563,6 +575,18 @@ void write_config_object(const T& obj) {
     // future: we could query using servo.attached() method
     servo.detach();
     return LssNoReply;
+  }},
+
+  /*
+   * Returns model string
+   *
+   Ex: #209QMS<cr>
+   Returns:  *209QMSLSS-2IO-D9
+   */
+  {LssModel | LssQuery,                          LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin, Servo& servo) {
+    transmit_model(dev.id, "D", pin);
+    return LssNoReply;
   }}
 
 });
@@ -613,6 +637,18 @@ void write_config_object(const T& obj) {
     else
       analogWrite(pin, p.value);
     return LssNoReply; 
+  }},
+
+  /*
+   * Returns model string
+   *
+   Ex: #203QMS<cr>
+   Returns:  *203QMSLSS-2IO-A3
+   */
+  {LssModel | LssQuery,                          LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
+    transmit_model(dev.id, "A", pin-A0);  // must remove the An pin offset
+    return LssNoReply;
   }},
 
   /*
