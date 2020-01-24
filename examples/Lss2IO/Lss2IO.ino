@@ -133,18 +133,7 @@ bool ready_for_defaults = false;
  *   [2] Gyre mode G,QG,CG can also set inversion on analog sensor values So 0 becomes 1024 and vice versa.
  */
 
-typedef void (*tx_enable_function)(bool en);
 
-// This struct ties a serial bus to a processing buffer
-typedef struct _LssSerialBus {
-  // the serial bus we are processing
-  Stream* port;
-  tx_enable_function tx_enable;
-  
-  // buffer stores characters as they come in
-  char cmdbuffer[16];
-  char* pcmd;
-} LssSerialBus;
 
 
 // count the number of elements in a C array
@@ -164,6 +153,35 @@ void lss_tx_enable(bool en)
 {
     digitalWrite(hw_pin_lss_tx_enable, en ? HIGH : LOW);
 }
+
+/*
+ * Send a string or manual packet reply with a string value.
+ * Required because LynxPacket for simplicity doesnt support string packet values.
+ */
+void lss_transmit(String s) {
+  // The handler may update the packet for reply transmission
+  // if so indicated, print the packet back to master
+  lss_tx_enable(true);
+  Serial.print('*');
+  Serial.print(s);
+  Serial.print('\r');
+  Serial.flush();
+  lss_tx_enable(false);
+}
+
+/*
+ * Send a device model 
+ */
+void transmit_model(short id, String modelPrefix, short pin) {
+  String reply;
+  reply += id;
+  reply += "QMSLSS-2IO-";
+  reply += modelPrefix;
+  if(pin>0)
+    reply += pin;
+  lss_transmit(reply);
+}
+
 
 /*
  * Force a reset by configuring the watchdog timer to timeout
@@ -273,13 +291,6 @@ void write_config_object(const T& obj) {
     // write a single device record within the config
     int offset = (unsigned char*)&obj - (unsigned char*)&config;
     if(offset>=0 && offset<sizeof(config)) {
-#if 0
-      lss_tx_enable(true);
-      Serial.print('=');
-      Serial.print(offset);
-      Serial.print('\r');
-      lss_tx_enable(false);
-#endif 
       EEPROM.put(eeprom_config_start + 4 + offset, obj);
     }
   } else
@@ -381,14 +392,14 @@ void write_config_object(const T& obj) {
    The baud rates are currently restricted to those above.
 
    Query Baud Rate (QB)
-   Ex: #5QB<cr> might return *5QB9600<cr>
+   Ex: #207QB<cr> might return *5QB9600<cr>
 
    Since the command to query the baud rate must be done at the servo's existing baud rate, it can simply 
    be used to confirm the CB configuration command was correctly received before the servo is power cycled 
    and the new baud rate takes effect.
 
    Configure Baud Rate (CB)
-   Ex: #5CB9600<cr>
+   Ex: #207CB9600<cr>
 
    Important Note: the servo's current session retains the given baud rate and the new baud rate will only
    take effect when the servo is power cycled / RESET.
@@ -417,7 +428,7 @@ void write_config_object(const T& obj) {
   /*
    * Reset Module
    *
-   Ex: #5RESET<cr> or #5RS<cr>
+   Ex: #207RESET<cr> or #5RS<cr>
 
    This command does a "soft reset" (no power cycle required) and reverts all commands to those stored in EEPROM (i.e. configuration 
    commands).
@@ -434,7 +445,7 @@ void write_config_object(const T& obj) {
   /*
    * Reset Config on Module
    *
-   Ex: #5DEFAULT<cr>
+   Ex: #207DEFAULT<cr>
 
    This command clears EEPROM contents to factory default and does a "soft reset" (no power cycle required).
    Note: after a RESET command is received the 2IO module will restart and perform initilization again, making it unavailable on the bus
@@ -729,11 +740,10 @@ short resolve_device(const LssDevice* arr, short arrN,  unsigned short id) {
   return -1;  // no device found
 }
 
-
 /*
  * Given a new packet, determine what device it is intended for and call the packet handlers above with appropriate arguments.
  */
-void process_packet(LssSerialBus& bus, LynxPacket p) {
+void process_packet(LynxPacket p) {
   short n;
   short r = LssNoReply;
   LssDevice* dev = nullptr;
@@ -762,17 +772,8 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
 
   // The handler may update the packet for reply transmission
   // if so indicated, print the packet back to master
-  if(r==LssReply && p.id >0) {
-    if(bus.tx_enable)
-      bus.tx_enable(true);
-    bus.port->print('*');
-    bus.port->print(p.toString());
-    bus.port->print('\r');
-    if(bus.tx_enable) {
-      bus.port->flush();
-      bus.tx_enable(false);
-    }
-  }
+  if(r==LssReply && p.id >0)
+    lss_transmit(p.toString());
 }
 
 /*
@@ -780,7 +781,7 @@ void process_packet(LssSerialBus& bus, LynxPacket p) {
  * for broadcasts we must recurse with each device we know about.
  *
  */
-void process_broadcast_packet(LssSerialBus& bus, LynxPacket p) {
+void process_broadcast_packet(LynxPacket p) {
   short n;
   short r = LssNoReply;
   LssDevice* dev = nullptr;
@@ -844,7 +845,6 @@ void test_factory_reset() {
   pinMode(hw_firmware_reset_pin, INPUT);
 }
 
-LssSerialBus arduinoSerial;
 
 void setup() {
   // configure the TX enable tr-state buffer
@@ -884,46 +884,41 @@ void setup() {
 
   // restore LED color
   led_standard_output(config.led.color);
-
-  arduinoSerial.port = &Serial;
-  arduinoSerial.tx_enable = lss_tx_enable;
-  arduinoSerial.pcmd = arduinoSerial.cmdbuffer;
 }
 
+void loop() {
+  // buffer stores characters as they come in
+  static char cmdbuffer[16];
+  static char* pcmd = cmdbuffer;
 
-void serialbus_process(LssSerialBus& bus) {
-  while (bus.port->available() > 0) {
+  while (Serial.available() > 0) {
     // read the incoming byte
-    int c = bus.port->read();
+    int c = Serial.read();
 
     if(c == '\r') {
-      *bus.pcmd = 0;  // append null
+      *pcmd = 0;  // append null
 
       // todo: we can probably convert this to a state machine model
-      if(bus.cmdbuffer[0] == '#') {
+      if(cmdbuffer[0] == '#') {
         // parse the LSS command
         LynxPacket pkt;
-        if(pkt.parse(&bus.cmdbuffer[1])) {
+        if(pkt.parse(&cmdbuffer[1])) {
           if(pkt.id == LssBroadcastAddress)
-            process_broadcast_packet(bus, pkt);
+            process_broadcast_packet(pkt);
           else
-            process_packet(bus, pkt);
+            process_packet(pkt);
         }
       }
 
       // clear packet buffer
-      bus.pcmd = bus.cmdbuffer;
+      pcmd = cmdbuffer;
     } else if(c == '#') {
       // for now, we reset the buffer if we encounter a packet-start character
-      bus.pcmd = bus.cmdbuffer;
-      *bus.pcmd++ = (char)c;
+      pcmd = cmdbuffer;
+      *pcmd++ = (char)c;
     } else {
       // add to cmd buffer
-      *bus.pcmd++ = (char)c;
+      *pcmd++ = (char)c;
     }
   }
-}
-
-void loop() {
-  serialbus_process(arduinoSerial);
 }
