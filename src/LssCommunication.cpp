@@ -65,6 +65,9 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
         case 'R': ACCEPT(LssQuery|LssAngularRange);
         case 'S': ACCEPT(LssQuery|LssAngularStiffness);
       }
+      case 'M': SWITCH(LssInvalid) {
+        case 'S': ACCEPT(LssQuery|LssModel);
+	  }
       case 'P': ACCEPT(LssQuery|LssPosition|LssPulse);
       case 'D': SWITCH(LssQuery|LssPosition|LssDegrees) {
         case 'T': ACCEPT(LssQuery|LssTarget);
@@ -235,6 +238,10 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
           *pout++ = 'I';
           *pout++ = 'R';
           *pout++ = 'M';
+          break;
+        case LssModel:
+          *pout++ = 'M';
+          *pout++ = 'S';
           break;
         default:
           // cannot serialize, unknown command code
