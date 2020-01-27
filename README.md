@@ -1,5 +1,5 @@
 # AlternativeLSS
-High performance library for the Lynxmotion LSS servos.
+High performance library for the Lynxmotion Smart Servos (LSS).
 
 # Installation
 Use git to clone this repository into your Arduino libraries folder. This is usually in your home Documents directory "Arduino/libraries". Then start Arduino. You should now have AlternativeLSS as a library and examples under the File | Examples | AlternativeLSS menu.
