@@ -283,6 +283,8 @@ char* LynxPacket::serialize(char* out) const
   if(x>=100) {
       *out++ = '0'+(x/100);
       x %= 100;
+      if(x<10)
+          *out++ = '0';   // number is 2 digits, with a zero in the middle
   }
   if(x>=10) {
     *out++ = '0'+(x/10);
