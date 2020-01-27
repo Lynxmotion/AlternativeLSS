@@ -13,4 +13,4 @@ There are 5 examples that use the AlternativeLSS library. You should verify the 
 * UnitTests - runs software simulated unit tests to verify the integrity of the library. Can also run physical servo tests.
 
 # Known Issues
-* Since micros() wraps every ~70 minutes we need to guard against this case somewhow. This might affect timeout detection.
+* Since micros() wraps every ~70 minutes. We need to guard against this case somewhow. This might affect timeout detection.
