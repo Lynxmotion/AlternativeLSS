@@ -71,25 +71,31 @@ void CompliantJoint::update(unsigned long tsnow)
         bool pos_polarity = dx > 0;
         bool neg_polarity = dx < 0;
 
-        currentBias = pos_polarity
+        currentBias = neg_polarity
                 ? currentPositiveBias.value()
-                : neg_polarity
+                : pos_polarity
                     ? currentNegativeBias.value()
                     : 0;
 
         auto old_currentBias = currentBias;
 
+        auto lim = currentLimit;
         if(neg_polarity && gravityBias>0)
-            currentBias += gravityBias;
+            lim += gravityBias;
         else if(pos_polarity && gravityBias<0)
-            currentBias -= gravityBias;
+            lim += gravityBias;
+
+
+        int unbiasedCurrent = current.current() - currentBias;
+        bool limit = unbiasedCurrent > lim;
+        //int amps_velocity = -current.current().velocity();
 
         if(name == "J14")
-            printf("%s  %d |%c| %d => %d\n", name.c_str(), old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '*', gravityBias, currentBias);
-
-        int unbiasedCurrent = current.current() + currentBias;
-        bool limit = unbiasedCurrent > currentLimit;
-        //int amps_velocity = -current.current().velocity();
+            printf("%s  %d |%c| G%d => %d | %d+%d:%d (%4.1f)\n",
+                    name.c_str(),
+                    old_currentBias, pos_polarity ? '+' : neg_polarity ? '-' : '*', gravityBias, currentBias,
+                    current.current().value(), currentBias, currentLimit, (double)unbiasedCurrent*100/currentLimit
+            );
 
         unsigned long stateTime = millis() - stateChanged;
         bool idle = position.current().velocity()==0 && !limit;
@@ -98,7 +104,7 @@ void CompliantJoint::update(unsigned long tsnow)
         switch(state) {
             case Holding:
                 // check if we are over current limit
-                mmd.target(500);
+                mmd.target(600);
                 CPR(3);
                 if(limit) {
                     if(pos_polarity)
