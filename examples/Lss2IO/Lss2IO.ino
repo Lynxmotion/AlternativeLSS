@@ -4,16 +4,14 @@
 
 #include <EEPROM.h>
 #include <Servo.h>
-#include <SoftwareSerial.h>
 #include <avr/io.h>
 #include <avr/wdt.h>
 
+// only define this if you are using the LSS2IO in Arduino mode (Not using the LSS bus) such as testing
+//#define ARDUINO_DEV_MODE
 
-
-// if set, we'll also listen and respond on the USB serial to LSS messages.
-// we'll always respond on the software serial bus as it is dedicated to LSS communication.
-#define LSS_ON_ARDUINO_SERIAL
-
+// define this to change the PPM from CSV output to shorter hex string
+//#define HEX_PPM_OUT
 
 // Sensor modes
 // These sensors we know about and can perform the conversion to standard units
@@ -26,7 +24,9 @@ typedef enum {
   GP2Y0A21YK0F,   // millimeters
   GP2Y0A02YK0F,   // millimeters
 
-  LastSensorMode = GP2Y0A02YK0F
+  ReceiverPPM,
+  
+  LastSensorMode = ReceiverPPM
 } SensorMode;
 
 
@@ -179,6 +179,22 @@ void transmit_model(short id, String modelPrefix, short pin) {
   reply += modelPrefix;
   if(pin>0)
     reply += pin;
+  lss_transmit(reply);
+}
+
+void transmit_ppm(short id) {
+  String reply;
+  reply += id;
+  reply += "QA";
+  for (byte i = 0, c = ppm_count(); i < c; i++) {
+#if defined(HEX_PPM_OUT)
+    reply += ',';
+    reply += String(ppm_channel(i), HEX);
+#else
+    reply += ',';
+    reply += ppm_channel(i);
+#endif
+  }
   lss_transmit(reply);
 }
 
@@ -603,7 +619,7 @@ void write_config_object(const T& obj) {
   /*
    * Read Value
    * 
-   We borrow the servo position query command to read or write to GPIO. If the GPIO pin is configured as a known sensor then
+   We use the Analog command to read or write to GPIO. If the GPIO pin is configured as a known sensor then
    the value will be converted into that sensors output units. Use AngularRange (AR) command to set a sensor's mode.
 
    Writing to an analog pin uses the Arduino analogWrite() on pins A3 and A5 which will output a PWM signal with appropriate
@@ -619,26 +635,41 @@ void write_config_object(const T& obj) {
    */
   {LssAnalog | LssQuery,            LssNoBroadcast,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
-    // convert the input and set as output value
-    p.set(
-      sensor_conversion(
-        analogRead(pin),                                // read input from pin
-        p.between(0, LastSensorMode) ? p.value : 0,     // type of sensor
-        dev.inverted
-      )
-    );
+    if(dev.mode == ReceiverPPM) {
+      transmit_ppm(dev.id);
+      return LssNoReply;
+    } else {
+      // convert the input and set as output value
+      p.set(
+        sensor_conversion(
+          analogRead(pin),                                // read input from pin
+          p.between(0, LastSensorMode) ? p.value : 0,     // type of sensor
+          dev.inverted
+        )
+      );
+    }
     return LssReply; 
   }},
   {LssAnalog | LssAction,           LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
-    pinMode(pin, OUTPUT);
-    if(pin == A4)
-      digitalWrite(pin, p.value ? HIGH : LOW);
-    else
+    if(dev.mode != ReceiverPPM) {
+      pinMode(pin, OUTPUT);
       analogWrite(pin, p.value);
+    }
     return LssNoReply; 
   }},
 
+  // Configure the pins sensor mode
+  {LssAngularRange | LssAction,           LssNone,
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
+    if(dev.mode == ReceiverPPM)
+      ppm_stop();
+    dev.mode = p.value;
+    if(dev.mode == ReceiverPPM)
+      ppm_start(pin, dev.inverted);
+    return LssNoReply; 
+  }},
+  
   /*
    * Returns model string
    *
@@ -887,8 +918,10 @@ void setup() {
   lss_tx_enable(false);
 
   // disable USB tx input line so we only receive LSS bus serial data
+#if !defined(ARDUINO_DEV_MODE)
   pinMode (hw_pin_usb_tx_enable, OUTPUT);
   digitalWrite(hw_pin_usb_tx_enable, LOW);
+#endif
 
   // Define pin as Input
   pinMode (A3, INPUT);
