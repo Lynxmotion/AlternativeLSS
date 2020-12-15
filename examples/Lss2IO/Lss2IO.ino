@@ -689,7 +689,7 @@ void write_config_object(const T& obj) {
    * We specify LssMatchAny so the command will trigger on ANY of the command names instead of requiring ALL to match. So the 
    * command list here specifies all commands that support setting the config option in non-volatile flash.
    */
-  {LssAngularRange | LssConfig,           LssMatchAny,
+  {LssAnalog | LssConfig,           LssMatchAny,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) { write_config_object(dev); return LssNoReply; }}
 });
 
