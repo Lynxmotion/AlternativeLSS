@@ -41,7 +41,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'T': ACCEPT(LssDefault);
       }}}}}
     }
-    case 'A': SWITCH(LssInvalid) {
+    case 'A': SWITCH(LssAnalog) {
       case 'R': ACCEPT(LssAngularRange);
       case 'S': ACCEPT(LssAngularStiffness);
     }

@@ -660,7 +660,7 @@ void write_config_object(const T& obj) {
   }},
 
   // Configure the pins sensor mode
-  {LssAngularRange | LssAction,           LssNone,
+  {LssAnalog | LssAction,           LssNone,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     if(dev.mode == ReceiverPPM)
       ppm_stop();
