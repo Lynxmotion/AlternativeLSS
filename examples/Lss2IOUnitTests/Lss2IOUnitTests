@@ -26,11 +26,12 @@ bool pinD_A_Error = false;
 
 void setup() {
   Serial.begin(115200);
-  // put your setup code here, to run once:
+  
   //Set RGB pins as outputs
   pinMode(red_light_pin, OUTPUT);
   pinMode(green_light_pin, OUTPUT);
   pinMode(blue_light_pin, OUTPUT);
+  
   //Set digital pins as outputs
   pinMode(9, OUTPUT);
   pinMode(10, OUTPUT);
@@ -39,17 +40,13 @@ void setup() {
   pinMode(7, OUTPUT);
   digitalWrite(7,HIGH);
   digitalWrite(14,HIGH);
+
+  //Reset the RGB
   RGB_color(255, 255, 255);
 }
 
 void loop() {
-  Serial.println("Press ENTER to start Testing");
-  Serial.println(" ");
-  while (!Enter_Event())
-  {Blink_Wait();}
-  
-  // put your main code here, to run repeatedly:
-  // Step 1 : Test RGB LEDS
+// Step 1 : Test RGB LEDS
   Serial.println("///////////////////////////////////////////");
   Serial.println("/////////////// Testing RGB ///////////////");
   Serial.println("///////////////////////////////////////////");
@@ -63,21 +60,21 @@ void loop() {
   while (!Enter_Event())
     {Blink_Wait();}
 
-  Serial.println("  RGB should be blinking RED");
-  Serial.println("  Press ENTER to Confirm");
-  Serial.println(" ");
+  Serial.println("RGB should be blinking RED");
+  Serial.println("Press ENTER to Confirm");
+  Serial.println("");
   while (!Enter_Event())
     {Blink_Red();}
   
-  Serial.println("  RGB should be blinking GREEN");
-  Serial.println("  Press ENTER to Confirm");
-  Serial.println(" ");
+  Serial.println("RGB should be blinking GREEN");
+  Serial.println("Press ENTER to Confirm");
+  Serial.println("");
   while (!Enter_Event())
     {Blink_Green();}
   
-  Serial.println("  RGB should be blinking BLUE");
-  Serial.println("  Press ENTER to Confirm");
-  Serial.println(" ");
+  Serial.println("RGB should be blinking BLUE");
+  Serial.println("Press ENTER to Confirm");
+  Serial.println("");
   while (!Enter_Event())
     {Blink_Blue();}
 
@@ -86,13 +83,13 @@ void loop() {
   while (!Enter_Event())
     {Blink_Wait();}
   
-  // Step 2 : Test Analog/Digital pins:
+// Step 2 : Test Analog/Digital pins:
   Serial.println("///////////////////////////////////////////");
   Serial.println("/////// Testing Digital/Analog Pins ///////");
   Serial.println("///////////////////////////////////////////");
   Serial.println(" ");
 
-  Serial.println("Directions:");
+  Serial.println("Directions Testing Digital / Analog Pins:");
   Serial.println("  1.  Connect the following");
   Serial.println("  2.  D11 to 17(A3)");
   Serial.println("  3.  D10 to 18(A4)");
@@ -109,10 +106,10 @@ void loop() {
   Test_pins(9,19);
 //  Serial.println("Successfully tested all Digital/Analog pins");
   if (pinD_A_Error == true){
-    RGB_color(0, 255, 255);
+    RGB_color(245, 255, 255);
   }
   else{
-    RGB_color(255, 0, 255);
+    RGB_color(255, 245, 255);
   }
 
   // Waiting for the Tester to see the results
@@ -123,12 +120,12 @@ void loop() {
     {}
   RGB_color(255, 255, 255); // Reset color back to OFF
     
-  // Step 3 : Test Tristate Buffers and Switch:
+// Step 3 : Test Tristate Buffers and Switch:
   Serial.println("///////////////////////////////////////////");
   Serial.println("/// Testing Tristate Buffers and Switch ///");
   Serial.println("///////////////////////////////////////////");
   Serial.println(" ");
-  Serial.println("Directions:");
+  Serial.println("Directions Testing 2RC Buffer:");
   Serial.println("  1.  Connect LSS port TX in RX");
   Serial.println("  2.  Place switch in 2RC Mode");
   Serial.println("  3.  Make sure that the line ending is set to : Carriage Return");  
@@ -145,32 +142,28 @@ void loop() {
   Serial.println(" ");
   while (!Enter_Event())
     {}
-  RGB_color(255, 255, 255); // Reset color back to OFF
   
+  // Reset the RGB
+  RGB_color(255, 255, 255); // Reset color back to OFF
+
   // Waiting for the Tester to see the results
-  Serial.println("Directions:");
+  Serial.println("Directions Testing CH340E Buffer:");
   Serial.println("  1.  Place switch in Arduino Mode"); 
   Serial.println("  2.  Press ENTER to proceed");
   Serial.println(" ");
-  
   while (!Enter_Event())
     {Blink_Wait();}
-  RGB_color(255, 255, 255); // Reset color back to OFF
   
+  // Reset the RGB
+  RGB_color(255, 255, 255); // Reset color back to OFF
+
+  // Testing the CH340E Tristate Buffer
   Test_Tristate_CH340E();
-  
-  // Waiting for the Tester to see the results
-  delay(50);
-  Serial.println(" ");
-  Serial.println("Press ENTER to Confirm");
-  
-  while (!Enter_Event())
-    {}
-  RGB_color(255, 255, 255); // Reset color back to OFF
-  
+
   Serial.println(" ");
   Serial.println("*** ALL TESTS DONE / CORRECT ANYTHING THAT DIDN'T WORKED ***");
-  RGB_color(255, 255, 255);
+
+  // End of tests
   while (1) {}
 }
 
@@ -186,14 +179,14 @@ void Test_Tristate_2RC(){
     Serial.flush();
     Serial.write(mystr3,2);
     Serial.readBytes(mystr4,2);
-    if (mystr3 != mystr4) {Serial.println("   OK:  2RC Tristate Test Succeeded");}
-    RGB_color(255, 0, 255);
+    if (mystr3 != mystr4) {Serial.println("   OK:  Tristate Test Succeeded");}
+    RGB_color(255, 245, 255);
   }
   else 
   {
     Serial.println("");
-    Serial.println("  ERROR: Verify if LSS Tx and Rx are properly connected and Switch in 2RC Mode");
-    RGB_color(0, 255, 255);
+    Serial.println("  ERROR:  Verify if LSS Tx and Rx are properly connected and Switch in 2RC Mode");
+    RGB_color(245, 255, 255);
   }    
   digitalWrite(7,HIGH);
   digitalWrite(14,LOW);
@@ -205,42 +198,16 @@ void Test_Tristate_CH340E(){
   Serial.write(mystr11,11);
   Serial.readBytes(mystr22,11);
   if (mystr11[0] == mystr22[0] && mystr11[1] == mystr22[1] && mystr11[2] == mystr22[2] && mystr11[3] == mystr22[3] && mystr11[4] == mystr22[4] && mystr11[5] == mystr22[5] && mystr11[6] == mystr22[6] && mystr11[7] == mystr22[7] && mystr11[8] == mystr22[8] && mystr11[9] == mystr22[9] && mystr11[10] == mystr22[10]) {
-  Serial.println(" ");
-  Serial.println("OK: CH340E Tristate Test Succeeded");
+    Serial.println("");
+    Serial.println("  OK:  Tristate Test Succeeded");
+    RGB_color(255, 245, 255);
   }
-  else 
-  {
-  Serial.println(" ");
-  Serial.println("ERROR: Verify if LSS Tx and Rx are properly connected and Switch in Arduino Mode");
-  }
-  digitalWrite(7,HIGH);    
+  else  {
+    Serial.println("");
+    Serial.println("  ERROR:  Verify if LSS Tx and Rx are properly connected and Switch in Arduino Mode");
+    RGB_color(245, 255, 255);
+  }    
 } 
-
-//void Test_Tristate_CH340E(){
-//  digitalWrite(7,LOW);
-//  delay(50);
-//  Serial.write(mystr11,11);
-//  Serial.readBytes(mystr22,11);
-//  if (mystr11[0] == mystr22[0] && mystr11[1] == mystr22[1] && mystr11[2] == mystr22[2] && mystr11[3] == mystr22[3] && mystr11[4] == mystr22[4] && mystr11[5] == mystr22[5] && mystr11[6] == mystr22[6] && mystr11[7] == mystr22[7] && mystr11[8] == mystr22[8] && mystr11[9] == mystr22[9] && mystr11[10] == mystr22[10]) {
-//    digitalWrite(7,HIGH);
-//    digitalWrite(14, HIGH);
-//    delay(50);
-//    Serial.println(" ");
-//    Serial.println("    OK: CH340E Tristate Test Succeeded");
-//    RGB_color(255, 0, 255);
-//  }
-//  else 
-//  {
-//    delay(50);
-//    digitalWrite(7,HIGH);
-//    digitalWrite(14, HIGH);
-//    delay(50);
-//    Serial.println(" ");
-//    Serial.println("  ERROR: Verify if LSS Tx and Rx are properly connected and Switch in Arduino Mode");
-//    RGB_color(0, 255, 255);
-//  }
-//  //digitalWrite(7,HIGH);    
-//} 
 
 void RGB_color(int red_light, int green_light, int blue_light){
   analogWrite(red_light_pin, red_light);
@@ -295,19 +262,16 @@ void Test_pins(int digital_pin_number, int analog_pin_number){
 }
 
 bool Enter_Event(){ 
- char c;
- while(Serial.available()) 
- {
-   c = Serial.read();
-   if (c == '\r') 
-   {
-     return true; 
-   }
-   else
-   {
-    return false;
-   } 
- }
+  char c;
+  while(Serial.available()){
+    c = Serial.read();
+    if (c == '\r'){
+      return true; 
+    }
+    else{
+      return false;
+    } 
+  }
 }
  
 void Blink_Wait(){
