@@ -47,6 +47,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     }
     case 'M': SWITCH(LssInvalid) {
       case 'D': ACCEPT(LssMove|LssDegrees);
+      case 'M': ACCEPT(LssWheelMode);
     }
     case 'W': SWITCH(LssInvalid) {
       case 'D': ACCEPT(LssWheelMode|LssDegrees);
@@ -98,7 +99,9 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     }
 
     case 'R': SWITCH(LssInvalid) {
-      case 'S': ACCEPT(LssReset);
+      case 'D': SWITCH(LssInvalid) {
+        case 'M': ACCEPT(LssSpeed|LssPulse);
+      }
       case 'E': SWITCH(LssInvalid) {
       case 'S': SWITCH(LssInvalid) {
       case 'E': SWITCH(LssInvalid) {
