@@ -35,7 +35,7 @@ typedef unsigned long LssCommands;
   // modifiers
 #define  LssTimedMove        BIT(11)
 #define  LssSpeed            BIT(15)
-#define  LssModifiers        (LssTimedMove|LssSpeed)
+#define  LssModifiers        (LssTimedMove)
 
 #define  LssID               BIT(7)
 #define  LssBaudRate         BIT(8)
