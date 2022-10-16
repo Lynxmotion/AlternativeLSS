@@ -48,11 +48,16 @@ typedef struct _LssStepper {
 } LssStepper;
 
 typedef struct _LssBrushedMotor {
-  short A;    // pin A
-  short B;    // pin B
-  bool reverse;
+  short P1;        // pin A
+  short P2;        // pin B
+  bool reverse;   // reverse direction
+  bool slow_decay;
 } LssBrushedMotor;
 
+typedef struct _LssBrushedMotorState {
+  bool brake;     // set if last command was a hard brake (slow decay)
+  int speed;      // negative indicates reverse
+} LssBrushedMotorState;
 
 typedef struct _Config {
   Config2IO io;
@@ -80,8 +85,8 @@ const Config default_config PROGMEM = {
 
   // Brushed Motors
   {
-    { hw_pin_A1, hw_pin_A2, false },
-    { hw_pin_B1, hw_pin_B2, false }
+    { hw_pin_A1, hw_pin_A2, false, false },
+    { hw_pin_B1, hw_pin_B2, false, false }
   }
 };
 
@@ -92,6 +97,12 @@ const long SupportedBaudrates[] = {9600, 19200, 38400, 57600, 115200, 230400, 25
 // stores our active configuration
 // this is loaded from EEPROM or otherwise uses default_config
 Config config;
+
+// state of the brushless motors
+LssBrushedMotorState brushed_motor_state[] = {
+  { false, 0 },
+  { false, 0 }
+};
 
 
 // the 3 servo pins wired to D9, D10, and D11
@@ -458,13 +469,30 @@ LssPacketHandlers<> StepperHandlers
 });
 
 
+
+
 /*  Dual Brushed Motor Mode
  *   
  *   If this mode is enabled then commands in this block become active to contol 1 or 2 brushed motors, otherwise
  *   the stepper handlers would be active.
  */
-LssPacketHandlers<LssBrushedMotor&> DualBrushedHandlers
+LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
 ({
+  { LssQuery,                                     LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      if(p.command == LssQuery) {
+        if(s.brake) {
+          p.set(2);
+        } else if (s.speed == 0) {
+          p.set(0);
+        } else {
+          p.set(1);
+        }
+        return LssReply;
+      } else
+        return LssNoReply;
+    }
+  },
   /*
      Returns model string
 
@@ -472,26 +500,133 @@ LssPacketHandlers<LssBrushedMotor&> DualBrushedHandlers
     Returns:  *207QMSLSS-2IO-LED
   */
   { LssModel | LssQuery,                          LssNone,
-    [](LynxPacket & p, LssBrushedMotor& m) {
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       transmit_model(p.id, "DBR");
       return LssNoReply;
     }
   },
-    
-  { LssAnalog | LssQuery,            LssNoBroadcast,
-    [](LynxPacket & p, LssBrushedMotor& m) {
+
+  { LssWheelMode | LssRPM | LssQuery,         LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      if(cfg.slow_decay)
+        p.set(1);
+      else
+        p.set(0);
+      return LssReply;
+    }
+  },
+
+  { LssWheelMode | LssRPM,                    LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      cfg.slow_decay = (p.value > 0);
+      return LssNoReply;
+    }
+  },
+
+  { LssLimp,                                  LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      s.speed = 0;
+      s.brake = false;
+      digitalWrite(cfg.P1, LOW);
+      digitalWrite(cfg.P2, LOW);
+      Serial.println("stop");
+      return LssNoReply;
+    }
+  },
+
+  { LssHaltAndHold,                           LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      s.speed = 0;
+      s.brake = true;
+      digitalWrite(cfg.P1, HIGH);
+      digitalWrite(cfg.P2, HIGH);
+      Serial.println("brake");
       return LssNoReply;
     }
   },
 
   { LssSpeed | LssPulse | LssQuery,               LssNone,
-    [](LynxPacket & p, LssBrushedMotor& m) {
-      transmit_model(p.id, "RAW");
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      Serial.println("q-speed");
+      p.set(s.speed);
+      return LssReply;
+    }
+  },
+
+  { LssSpeed | LssPulse,                          LssNone,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      // only 12 bits of speed is supported
+      if(p.value > 4095)
+        p.value = 4095;
+        
+      s.speed = p.value;
+      s.brake = false;
+      bool rev = s.speed < 0;
+      int speed = abs(s.speed);
+      
+      // write the speed to the motor
+      if(s.speed == 0) {
+        // let the motor coast to a stop
+        digitalWrite(cfg.P1, LOW);
+        digitalWrite(cfg.P2, LOW);
+        Serial.println("stopped");
+      } else if(cfg.reverse != rev) {
+        // reverse direction
+        if(cfg.slow_decay) {
+          // reverse w/ slow decay
+          analogWrite(cfg.P1, speed);
+          digitalWrite(cfg.P2, HIGH);
+          Serial.println("reverse-slow");
+        } else {
+          // reverse w/ fast decay
+          digitalWrite(cfg.P1, LOW);
+          analogWrite(cfg.P2, speed);
+          Serial.println("reverse-fast");
+        }
+      } else {
+        // forward direction
+        if(cfg.slow_decay) {
+          // forward w/ slowdecay
+          digitalWrite(cfg.P1, HIGH);
+          analogWrite(cfg.P2, speed);
+          Serial.println("forward-slow");
+        } else {
+          // forward w/ fast decay
+          analogWrite(cfg.P1, speed);
+          digitalWrite(cfg.P2, LOW);
+          Serial.println("forward-fast");
+        }
+      }
+      return LssNoReply;
+    }
+  },
+
+  { LssGyreDirection | LssQuery,
+    LssNoBroadcast | LssContinue,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      p.set(cfg.reverse ? -1 : 1);
+      return LssReply;
+    }
+  },
+  { LssGyreDirection | LssAction | LssConfig,
+    LssNone | LssContinue,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      if (p.value == -1)
+        cfg.reverse = true;
+      else if (p.value == 1)
+        cfg.reverse = false;
+      else
+        return LssNoReply; // invalid input, dont response
+      return LssNoReply;
+    }
+  },
+
+  { LssAngularRange | LssConfig,                     LssMatchAny,
+    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
+      write_config_object(cfg);
       return LssNoReply;
     }
   }
-
-  
 #if 0
   /*
      Read Value
@@ -729,49 +864,6 @@ LssPacketHandlers<> CommonDeviceHandlers
   },
   
   /*
-     Gyre Direction
-
-    "Gyre" is defined as a circular course or motion. The effect of changing the gyre direction is as if you were to use a mirror image of
-    a circle. CW = 1; CCW = -1. The factory default is clockwise (CW).
-
-    Ex: #5G-1<cr>
-    This command will cause servo #5's positions to be inverted, effectively causing the servo to rotate in the opposite direction given
-    the same command. For example in a 2WD robot, servos are often physically installed back to back, therefore setting one of the servos
-    to a negative gyration, the same wheel command (ex WR30) to both servos will cause the robot to move forward or backward rather than
-    rotate.
-
-    Query Gyre Direction (QG)
-    Ex: #5QG<cr> might return *5QG-1<cr>
-
-    The value returned above means the servo is in a counter-clockwise gyration.
-
-    Configure Gyre (CG)
-    Ex: #5CG-1<cr>
-
-    This changes the gyre direction as described above and also writes to EEPROM.
-
-  */
-  #if 0
-  { LssGyreDirection | LssQuery,                     LssNoBroadcast,
-    [](LynxPacket & p, LssDevice & dev) {
-      p.set(dev.inverted ? -1 : +1);
-      return LssReply;
-    }
-  },
-  { LssGyreDirection | LssAction | LssConfig,          LssNone,
-    [](LynxPacket & p, LssDevice & dev) {
-      if (p.value == -1)
-        dev.inverted = true;
-      else if (p.value == 1)
-        dev.inverted = false;
-      else
-        return LssNoReply; // invalid input, dont response
-      return LssNoReply;
-    }
-  },
-  #endif
-
-  /*
      Write to flash
      This handler will write the device config to flash when the Config comamnd prefix is given. This handler runs after any of
      the above handlers have already updated the config sctruct.
@@ -803,9 +895,9 @@ void process_packet(LynxPacket p) {
       break;
     case DualBrushedMode:
       if (p.id == config.io.id)
-        r = DualBrushedHandlers(p, config.motor[0]);
+        r = DualBrushedHandlers(p, brushed_motor_state[0], config.motor[0]);
       else if (p.id == config.io.id + 1)
-        r = DualBrushedHandlers(p, config.motor[1]);
+        r = DualBrushedHandlers(p, brushed_motor_state[1], config.motor[1]);
       else
         return;
       break;
@@ -859,10 +951,6 @@ void test_factory_reset() {
   pinMode(hw_firmware_reset_pin, INPUT);
 }
 
-void drive_brushed() {
-  // todo: update PWM, etc
-  
-}
 
 void setup() {
   motor_driver_limp();
@@ -897,7 +985,17 @@ void setup() {
                 : 115200L                 // baudrate was invalid, use default
               );
 
-  stepper.setMaxSpeed(1000);
+  if(config.io.motor_mode == StepperMode) {
+    // stepper mode
+    stepper.setMaxSpeed(1000);
+  } else {
+    // dual brushed motor mode
+    digitalWrite(hw_pin_A1, LOW);
+    digitalWrite(hw_pin_A2, LOW);
+    digitalWrite(hw_pin_B1, LOW);
+    digitalWrite(hw_pin_B2, LOW);
+    motor_driver_enable();
+  }
 }
 
 void loop() {
@@ -913,7 +1011,7 @@ void loop() {
     }
   } else {
     // brushed motor mode
-    drive_brushed();
+    // ...nothing to do, handled by Arduino PWM
   }
   
   
