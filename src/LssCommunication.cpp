@@ -77,6 +77,11 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
         case 'D': ACCEPT(LssQuery|LssWheelMode|LssDegrees);
         case 'R': ACCEPT(LssQuery|LssWheelMode|LssRPM);
       }
+      case 'R': SWITCH(LssInvalid) {
+        case 'D': SWITCH(LssInvalid) {
+          case 'M': ACCEPT(LssQuery|LssSpeed|LssPulse);
+        }
+      }
       case 'S': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssQuery|LssMaxSpeed|LssDegrees);
         case 'R': ACCEPT(LssQuery|LssMaxSpeed|LssRPM);
@@ -177,6 +182,13 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
         case LssTarget:
           *pout++ = 'D';
           *pout++ = 'T';
+          break;
+        case LssSpeed:
+          if(unit == LssPulse) {
+            *pout++ = 'R';
+            *pout++ = 'D';
+            *pout++ = 'M';
+          }
           break;
         case LssFirstPosition:
           *pout++ = 'F';
