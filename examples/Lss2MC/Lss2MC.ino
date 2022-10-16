@@ -43,7 +43,7 @@ typedef struct _Config2IO {
 
 typedef struct _LssStepper {
   bool reverse;
-  float stepsPerRev;
+  float steps_per_rev;
   MotionMode motion_mode;
 } LssStepper;
 
