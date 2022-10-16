@@ -31,7 +31,13 @@ LssTemperature	LITERAL1
 LssFirstPosition	LITERAL1
 LssCommandSet	LITERAL1
 LssAsyncCommandSet	LITERAL1
+LssNone LITERAL1
+LssContinue LITERAL1
+LssNoReply LITERAL1
+LssReply LITERAL1
+LssError LITERAL1
 
 Write	KEYWORD2
 AsyncRead	KEYWORD2
 AsyncReadAll	KEYWORD2
+
