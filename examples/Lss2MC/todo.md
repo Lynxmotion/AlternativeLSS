@@ -1,4 +1,4 @@
-### LSS 2MC Code
+- ### LSS 2MC Code
 
 
 # Stepper Mode Features
@@ -48,11 +48,7 @@ T          Timed move  (really, just no)
 
 
 Todo:
-- process_packet checks ID and jumps to device type. We have only 1 ID, so change this to just jump on motor_mode
-- probably get rid of LssDevice stuff, not needed (Handlers are written to take a LssDevice ref)
-- how do we implement 2 motors? ID and ID+1? or all set/gets take/return two values
 - gyre direction is in Common but will have to be moved to each dev
-
 
 set graph to full view
 
