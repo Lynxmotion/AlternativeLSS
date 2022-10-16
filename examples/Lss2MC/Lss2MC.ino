@@ -531,7 +531,6 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       s.brake = false;
       digitalWrite(cfg.P1, LOW);
       digitalWrite(cfg.P2, LOW);
-      Serial.println("stop");
       return LssNoReply;
     }
   },
@@ -542,14 +541,12 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       s.brake = true;
       digitalWrite(cfg.P1, HIGH);
       digitalWrite(cfg.P2, HIGH);
-      Serial.println("brake");
       return LssNoReply;
     }
   },
 
   { LssSpeed | LssPulse | LssQuery,               LssNone,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
-      Serial.println("q-speed");
       p.set(s.speed);
       return LssReply;
     }
@@ -573,19 +570,16 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
         // let the motor coast to a stop
         digitalWrite(cfg.P1, LOW);
         digitalWrite(cfg.P2, LOW);
-        Serial.println("stopped");
       } else if(cfg.reverse != rev) {
         // reverse direction
         if(cfg.slow_decay) {
           // reverse w/ slow decay
           analogWrite(cfg.P1, speed);
           digitalWrite(cfg.P2, HIGH);
-          Serial.println("reverse-slow");
         } else {
           // reverse w/ fast decay
           digitalWrite(cfg.P1, LOW);
           analogWrite(cfg.P2, speed);
-          Serial.println("reverse-fast");
         }
       } else {
         // forward direction
@@ -593,12 +587,10 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
           // forward w/ slowdecay
           digitalWrite(cfg.P1, HIGH);
           analogWrite(cfg.P2, speed);
-          Serial.println("forward-slow");
         } else {
           // forward w/ fast decay
           analogWrite(cfg.P1, speed);
           digitalWrite(cfg.P2, LOW);
-          Serial.println("forward-fast");
         }
       }
       return LssNoReply;
