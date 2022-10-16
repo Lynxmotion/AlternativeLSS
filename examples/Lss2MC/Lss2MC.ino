@@ -536,7 +536,7 @@ LssPacketHandlers<LssBrushedMotor&> DualBrushedHandlers
   },
 
   // Configure the pins sensor mode
-  { LssAngularRange | LssAction,           LssNone,
+  { LssAngularRange | LssAction,           LssNone|LssContinue,
     [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
       if (dev.mode == ReceiverPPM)
         ppm_stop();
@@ -613,7 +613,7 @@ LssPacketHandlers<> CommonDeviceHandlers
     cycled in order for the new ID to take effect.
 
   */
-  { LssID | LssQuery,       LssNoBroadcast,
+  { LssID | LssQuery,       LssNoBroadcast|LssContinue,
     [](LynxPacket & p) {
       p.set(config.io.id);
       return LssReply;
@@ -655,7 +655,7 @@ LssPacketHandlers<> CommonDeviceHandlers
     Sending this command will change the baud rate associated with servo ID 5 to 9600 bits per second.
 
   */
-  { LssBaudRate | LssQuery,            LssNoBroadcast,
+  { LssBaudRate | LssQuery,            LssNoBroadcast|LssContinue,
     [](LynxPacket & p) {
       // return the baudrate
       p.set(config.io.baudrate);
