@@ -120,6 +120,9 @@ const int eeprom_config_start = 0x16;
 bool ready_for_defaults = false;
 
 
+// the LSS standard defines CR as the packet ending
+#define LSS_NEWLINE '\r'
+//#define LSS_NEWLINE '\n'    // good for testing in Arduino IDE Serial Monitor
 
 // count the number of elements in a C array
 #define COUNTOF(arr)  (sizeof(arr)/sizeof(arr[0]))
@@ -149,7 +152,7 @@ void lss_transmit(String s) {
   lss_tx_enable(true);
   Serial.print('*');
   Serial.print(s);
-  Serial.print('\r');
+  Serial.print(LSS_NEWLINE);
   Serial.flush();
   lss_tx_enable(false);
 }
@@ -331,7 +334,7 @@ LssPacketHandlers<> StepperHandlers
       return LssNoReply;
     }
   },
-    
+
   /*
      Position in Degrees
 
@@ -918,7 +921,7 @@ void loop() {
     // read the incoming byte
     int c = Serial.read();
 
-    if (c == '\r') {
+    if (c == LSS_NEWLINE) {
       *pcmd = 0;  // append null
 
       // todo: we can probably convert this to a state machine model
