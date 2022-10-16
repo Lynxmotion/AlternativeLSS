@@ -10,6 +10,13 @@
 // only define this if you are using the LSS2MC in Arduino mode (Not using the LSS bus) such as testing
 #define ARDUINO_DEV_MODE
 
+// the following are the pin assignments from the schematic
+const unsigned short hw_pin_A1 = 9;
+const unsigned short hw_pin_A2 = 10;
+const unsigned short hw_pin_B1 = 3;
+const unsigned short hw_pin_B2 = 11;
+
+
 // Sensor modes
 // These sensors we know about and can perform the conversion to standard units
 typedef enum {
@@ -73,8 +80,8 @@ const Config default_config PROGMEM = {
 
   // Brushed Motors
   {
-    { false },
-    { false }
+    { hw_pin_A1, hw_pin_A2, false },
+    { hw_pin_B1, hw_pin_B2, false }
   }
 };
 
@@ -85,12 +92,6 @@ const long SupportedBaudrates[] = {9600, 19200, 38400, 57600, 115200, 230400, 25
 // stores our active configuration
 // this is loaded from EEPROM or otherwise uses default_config
 Config config;
-
-// the following are the pin assignments from the schematic
-const unsigned short hw_pin_A1 = 9;
-const unsigned short hw_pin_A2 = 10;
-const unsigned short hw_pin_B1 = 3;
-const unsigned short hw_pin_B2 = 11;
 
 
 // the 3 servo pins wired to D9, D10, and D11
@@ -310,8 +311,6 @@ void write_config_object(const T& obj) {
    configured on LSS bus ID 207 by default but can be changed via the CID command.
 
 */
-
-
 
 /*  Stepper Motor Mode
  *   
