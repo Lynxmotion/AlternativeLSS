@@ -7,6 +7,7 @@
 const short LssNone = 0;
 const short LssNoBroadcast = 1;
 const short LssMatchAny = 2;
+const short LssContinue = 4;
 
 const short LssReply = 1;
 const short LssNoReply = 0;
@@ -94,9 +95,10 @@ class LssPacketHandlers
     short operator()(LynxPacket& p, Args ... args) const {
       short r = LssNoHandler;
       for(size_t i=0; i < _count; i++) {
-        if(matches(p, _handlers[i])) {
-          r =  _handlers[i].handler(p, args...);
-          if(r==LssError)
+	    const Handler& handler = _handlers[i];
+        if(matches(p, handler)) {
+          r =  handler.handler(p, args...);
+          if(r==LssError || (handler.flags & LssContinue)==0)
             return r;
         }
       }
