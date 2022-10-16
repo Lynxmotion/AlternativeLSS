@@ -660,7 +660,7 @@ void write_config_object(const T& obj) {
   }},
 
   // Configure the pins sensor mode
-  {LssAnalog | LssAction,           LssNone,
+  {LssAnalog | LssConfig,           LssContinue,
   [](LynxPacket& p, LssDevice& dev, unsigned short pin) {
     if(dev.mode == ReceiverPPM)
       ppm_stop();
@@ -690,7 +690,10 @@ void write_config_object(const T& obj) {
    * command list here specifies all commands that support setting the config option in non-volatile flash.
    */
   {LssAnalog | LssConfig,           LssMatchAny,
-  [](LynxPacket& p, LssDevice& dev, unsigned short pin) { write_config_object(dev); return LssNoReply; }}
+  [](LynxPacket& p, LssDevice& dev, unsigned short pin) { 
+    write_config_object(dev);
+    return LssNoReply;
+  }}
 });
 
 
@@ -735,7 +738,7 @@ void write_config_object(const T& obj) {
     p.set(dev.id); 
     return LssReply;
   }},
-  {LssID | LssConfig,       LssNoBroadcast,
+  {LssID | LssConfig,       LssNoBroadcast|LssContinue,
   [](LynxPacket& p, LssDevice& dev) {
     if(p.flash() && p.between(0, LssBroadcastAddress-1))
       dev.id = p.value;   // only update object, flash handler will follow-up to write to flash
@@ -770,7 +773,7 @@ void write_config_object(const T& obj) {
     p.set(dev.inverted ? -1 : +1);
     return LssReply;
   }},
-  {LssGyreDirection | LssAction|LssConfig,          LssNone,
+  {LssGyreDirection | LssAction|LssConfig,          LssNone|LssContinue,
   [](LynxPacket& p, LssDevice& dev) {
     if(p.value == -1)
       dev.inverted = true;
