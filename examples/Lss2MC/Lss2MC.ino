@@ -16,6 +16,8 @@ const unsigned short hw_pin_A2 = 10;
 const unsigned short hw_pin_B1 = 3;
 const unsigned short hw_pin_B2 = 11;
 
+#define MAX_DUTY_VALUE  255
+
 
 // Sensor modes
 // These sensors we know about and can perform the conversion to standard units
@@ -556,8 +558,10 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
   { LssSpeed | LssPulse,                          LssNone,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       // only 12 bits of speed is supported
-      if(p.value > 4095)
-        p.value = 4095;
+      if(p.value > MAX_DUTY_VALUE)
+        p.value = MAX_DUTY_VALUE;
+      else if(p.value < -MAX_DUTY_VALUE)
+        p.value = -MAX_DUTY_VALUE;
         
       s.speed = p.value;
       s.brake = false;
