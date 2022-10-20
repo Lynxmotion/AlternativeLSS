@@ -205,6 +205,13 @@ void reset() {
   while (1) {};
 }
 
+// if true, we'll force a reset when packet processing has completed
+bool _reset_requested = false;
+
+void request_reset() {
+  _reset_requested = true;
+}
+
 
 // this bytes indicate if the EEPROM has stored a proper config
 char eeprom_hdr[4] = {'2', 'M', 'C', EEPROM_CONFIG_VER};
@@ -1042,4 +1049,8 @@ void loop() {
       *pcmd++ = (char)c;
     }
   }
+
+  if(_reset_requested)
+    // if requested, we can reset now
+    reset();
 }
