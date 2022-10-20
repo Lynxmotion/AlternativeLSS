@@ -631,77 +631,8 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       return LssNoReply;
     }
   }
+
 #if 0
-  /*
-     Read Value
-
-    We use the Analog command to read or write to GPIO. If the GPIO pin is configured as a known sensor then
-    the value will be converted into that sensors output units. Use AngularRange (AR) command to set a sensor's mode.
-
-    Writing to an analog pin uses the Arduino analogWrite() on pins A3 and A5 which will output a PWM signal with appropriate
-    duty cycle. You will need a low-pass filter on the pin if you truly want to generate an analog voltage signal. Pin A4 only
-    supports digital so outputting a anything other than 0 will set the pin HIGH.
-
-    Read a sensor value
-    Ex: #203QD
-
-    Write to a sensor or GPIO pin
-    Ex: #203D800
-
-  */
-  { LssAnalog | LssQuery,            LssNoBroadcast,
-    [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
-      if (dev.mode == ReceiverPPM) {
-        transmit_ppm(dev.id);
-        return LssNoReply;
-      } else {
-        // convert the input and set as output value
-        p.set(
-          sensor_conversion(
-            analogRead(pin),                                // read input from pin
-            p.between(0, LastSensorMode) ? p.value : 0,     // type of sensor
-            dev.inverted
-          )
-        );
-      }
-      return LssReply;
-    }
-  },
-  { LssAnalog | LssAction,           LssNone,
-    [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
-      if (dev.mode != ReceiverPPM) {
-        pinMode(pin, OUTPUT);
-        analogWrite(pin, p.value);
-      }
-      return LssNoReply;
-    }
-  },
-
-  // Configure the pins sensor mode
-  { LssAngularRange | LssAction,           LssNone|LssContinue,
-    [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
-      if (dev.mode == ReceiverPPM)
-        ppm_stop();
-      dev.mode = p.value;
-      if (dev.mode == ReceiverPPM)
-        ppm_start(pin, dev.inverted);
-      return LssNoReply;
-    }
-  },
-
-  /*
-     Returns model string
-
-    Ex: #203QMS<cr>
-    Returns:  *203QMSLSS-2IO-A3
-  */
-  { LssModel | LssQuery,                          LssNone,
-    [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
-      transmit_model(dev.id, "A", pin - A0); // must remove the An pin offset
-      return LssNoReply;
-    }
-  },
-
   /*
      Write to flash
      This handler will write the device config to flash when the Config comamnd prefix is given. This handler runs after any of
