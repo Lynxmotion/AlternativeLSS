@@ -785,7 +785,7 @@ LssPacketHandlers<> CommonDeviceHandlers
   },
 
 
-  { LssWheelMode | LssAction,                          LssNone,
+  { LssWheelMode | LssConfig,                        LssNone,
     [](LynxPacket & p) {
       motor_driver_limp();
       if(p.value == 0) {
@@ -793,7 +793,13 @@ LssPacketHandlers<> CommonDeviceHandlers
         config.io.motor_mode = StepperMode;
       } else if(p.value == 1) {
         config.io.motor_mode = DualBrushedMode;
-      }
+      } else
+        return LssNoReply;
+      
+      // write to flash
+      write_config_object(config.io);
+      // reset the device
+      request_reset();
       return LssReply;
     }
   },
