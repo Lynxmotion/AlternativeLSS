@@ -10,6 +10,8 @@
 // only define this if you are using the LSS2MC in Arduino mode (Not using the LSS bus) such as testing
 #define ARDUINO_DEV_MODE
 
+const char EEPROM_CONFIG_VER = '2';   // update this number if eeprom config layout changes
+
 // the following are the pin assignments from the schematic
 const unsigned short hw_pin_A1 = 9;
 const unsigned short hw_pin_A2 = 10;
@@ -67,7 +69,6 @@ typedef struct _Config {
   LssBrushedMotor motor[2];
 } Config;
 
-const char EEPROM_CONFIG_VER = '1';   // update this number if eeprom config layout changes
 
 const Config default_config PROGMEM = {
   // 2IO
