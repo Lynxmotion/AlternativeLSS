@@ -136,6 +136,9 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
           case 'D': ACCEPT(LssConfig|LssLEDColor);
         }
       }
+      case 'M': SWITCH(LssInvalid) {
+        case 'M': ACCEPT(LssConfig|LssWheelMode);
+      }
       case 'I': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssConfig|LssID);
       }
@@ -195,8 +198,13 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
           *pout++ = (unit == LssPulse) ? 'P' : 'D';
           break;
         case LssWheelMode:
-          *pout++ = 'W';
-          *pout++ = (unit == LssRPM) ? 'R' : 'D';
+		  if(unit == 0) {
+            *pout++ = 'M';
+            *pout++ = 'M';
+		  } else {
+            *pout++ = 'W';
+            *pout++ = (unit == LssRPM) ? 'R' : 'D';
+		  }
           break;
         case LssMaxSpeed:
           *pout++ = 'S';
