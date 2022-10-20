@@ -79,15 +79,16 @@ class LssPacketHandlers
     }
 
     // returns true if a packet is handled by the given callback handler
-    inline static bool matches(const LynxPacket& p, Handler h) { 
+    inline static bool matches(const LynxPacket& p, const Handler& h) { 
       //return (match & rhs.match)==match && (!broadcast || rhs.broadcast); 
+	  LssCommands hcmd = h.command & (LssCommandSet|LssUnits);
       LssCommands cmd = p.command & (LssCommandSet|LssUnits);
       LssCommands mode = p.command & LssCommandModes;
       if((mode & LssCommandModes) ==0)
         mode |= LssAction;    // todo: move this to the main handler so we only do it once
       bool command_match = (h.flags & LssMatchAny)
-          ? (h.command & cmd)           // match ANY of the command bits
-          : ((h.command & cmd)==cmd);   // match ALL of the command bits
+          ? (hcmd & cmd)                 // match ANY of the command bits
+          : (hcmd == cmd);   // match ALL of the command bits
       return command_match && (h.command & mode)>0 && (!p.broadcast() || (h.flags & LssNoBroadcast)==0);
     }
 
