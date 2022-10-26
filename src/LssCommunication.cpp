@@ -68,6 +68,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       }
       case 'M': SWITCH(LssInvalid) {
         case 'S': ACCEPT(LssQuery|LssModel);
+        case 'M': ACCEPT(LssQuery|LssWheelMode);
 	  }
       case 'P': ACCEPT(LssQuery|LssPosition|LssPulse);
       case 'D': SWITCH(LssQuery|LssPosition|LssDegrees) {

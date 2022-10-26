@@ -785,6 +785,18 @@ LssPacketHandlers<> CommonDeviceHandlers
   },
 
 
+  { LssWheelMode | LssQuery,                         LssNone,
+    [](LynxPacket & p) {
+      if(config.io.motor_mode == StepperMode)
+        p.set(0);
+      else if(config.io.motor_mode == DualBrushedMode)
+        p.set(1);
+      else
+        p.set(-1);
+      return LssReply;
+    }
+  },
+
   { LssWheelMode | LssConfig,                        LssNone,
     [](LynxPacket & p) {
       motor_driver_limp();
