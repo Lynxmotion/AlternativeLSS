@@ -25,8 +25,8 @@ const unsigned short hw_pin_B2 = 11;
 // These sensors we know about and can perform the conversion to standard units
 typedef enum {
   // no conversion, raw value
-  DualBrushedMode,
-  StepperMode
+  StepperMode = 0,
+  DualBrushedMode = 1
 } MotorMode;
 
 typedef enum {
@@ -75,7 +75,7 @@ const Config default_config PROGMEM = {
   {
     115200,               // default baudrate
     215,
-    StepperMode,
+    DualBrushedMode,
     {0, 0, 0, 0, 0, 0, 0, 0}
   },
 
@@ -787,10 +787,8 @@ LssPacketHandlers<> CommonDeviceHandlers
 
   { LssWheelMode | LssQuery,                         LssNone,
     [](LynxPacket & p) {
-      if(config.io.motor_mode == StepperMode)
-        p.set(0);
-      else if(config.io.motor_mode == DualBrushedMode)
-        p.set(1);
+      if(config.io.motor_mode == StepperMode || config.io.motor_mode == DualBrushedMode)
+        p.set((short)config.io.motor_mode);
       else
         p.set(-1);
       return LssReply;
@@ -800,10 +798,10 @@ LssPacketHandlers<> CommonDeviceHandlers
   { LssWheelMode | LssConfig,                        LssNone,
     [](LynxPacket & p) {
       motor_driver_limp();
-      if(p.value == 0) {
+      if(p.value == (short)StepperMode) {
         // stepper mode
         config.io.motor_mode = StepperMode;
-      } else if(p.value == 1) {
+      } else if(p.value == (short)DualBrushedMode) {
         config.io.motor_mode = DualBrushedMode;
       } else
         return LssNoReply;
