@@ -395,6 +395,29 @@ LssPacketHandlers<> StepperHandlers
     }
   },
 
+  /* Gyre Direction
+   *    Change the direction of the servo.
+   */
+  { LssGyreDirection | LssQuery,
+    LssNoBroadcast | LssContinue,
+    [](LynxPacket & p) {
+      p.set(config.stepper.reverse ? -1 : 1);
+      return LssReply;
+    }
+  },
+  { LssGyreDirection | LssAction | LssConfig,
+    LssNone | LssContinue,
+    [](LynxPacket & p) {
+      if (p.value == -1)
+        config.stepper.reverse = true;
+      else if (p.value == 1)
+        config.stepper.reverse = false;
+      else
+        return LssNoReply; // invalid input, dont response
+      return LssNoReply;
+    }
+  },
+
   
 #if 0
   { LssPosition | LssDegrees | LssQuery,            LssNoBroadcast,
