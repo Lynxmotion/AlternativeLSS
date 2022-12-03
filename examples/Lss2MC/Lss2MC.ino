@@ -145,6 +145,7 @@ bool ready_for_defaults = false;
 //void * operator new (size_t size, void * ptr) { return ptr; }
 
 
+
 /*
    Enable the transmission of data on the LSS Bus
 
@@ -461,7 +462,7 @@ LssPacketHandlers<> StepperHandlers
     Ex: #5L<cr>
 
   */
-  { LssHaltAndHold | LssAction,           LssNoBroadcast,
+  { LssHaltAndHold | LssAction,        LssNoBroadcast,
     [](LynxPacket & p) {
       motor_driver_enable();
       config.stepper.motion_mode = HoldingMode;
@@ -605,6 +606,9 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
     }
   },
 
+  /* Gyre Direction
+   *    Change the direction of the servo.
+   */
   { LssGyreDirection | LssQuery,
     LssNoBroadcast | LssContinue,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
