@@ -510,6 +510,16 @@ LssPacketHandlers<> StepperHandlers
       return LssNoReply;
     }
   },
+
+  /*
+   * Flash writes
+   */
+  { LssConfig,                         LssMatchAny,
+    [](LynxPacket & p) {
+      write_config_object(config.stepper);
+      return LssNoReply;
+    }
+  }
 });
 
 
@@ -649,7 +659,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       return LssReply;
     }
   },
-  { LssGyreDirection | LssAction | LssConfig,
+  { LssGyreDirection | LssAction,
     LssNone | LssContinue,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       if (p.value == -1)
@@ -662,7 +672,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
     }
   },
 
-  { LssAngularRange | LssConfig,                     LssMatchAny,
+  { LssConfig,         LssMatchAny,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       write_config_object(cfg);
       return LssNoReply;
