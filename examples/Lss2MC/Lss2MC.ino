@@ -344,6 +344,16 @@ void write_config_object(const T& obj) {
  */
 LssPacketHandlers<> StepperHandlers
 ({
+  { LssQuery,                                     LssNone,
+    [](LynxPacket & p) {
+      if(p.command == LssQuery) {
+        p.set(config.stepper.motion_mode);
+        return LssReply;
+      } else
+        return LssNoReply;
+    }
+  },
+
   /*
      Returns model string
 
