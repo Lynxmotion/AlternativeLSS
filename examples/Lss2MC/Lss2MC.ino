@@ -386,14 +386,23 @@ LssPacketHandlers<> StepperHandlers
     servos position has reached 13.2 degrees.
 
   */
-  { LssWheelMode| LssDegrees | LssAction,           LssNoBroadcast,
+  { LssWheelMode| LssDegrees | LssAction,           LssNone,
     [](LynxPacket & p) {
       motor_driver_enable();
       config.stepper.motion_mode = SpeedMode;
-      stepper.setSpeed(p.value / 10);
+      stepper.setSpeed(p.value / 10.0);
       return LssReply;
     }
   },
+
+  { LssWheelMode| LssDegrees | LssQuery,           LssNoBroadcast,
+    [](LynxPacket & p) {
+      config.stepper.motion_mode = SpeedMode;
+      p.set(stepper.speed() * 10.0);
+      return LssReply;
+    }
+  },
+
 
   /* Gyre Direction
    *    Change the direction of the servo.
