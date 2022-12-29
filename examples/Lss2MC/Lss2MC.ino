@@ -560,6 +560,10 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
     }
   },
 
+  /*
+   * Set H-Bridge driver to Slow or Fast Decay
+   */
+#if 0  // disabled for now until we determine what LSS command to assign it to
   { LssWheelMode | LssRPM | LssQuery,         LssNone,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       if(cfg.slow_decay)
@@ -576,6 +580,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       return LssNoReply;
     }
   },
+#endif
 
   { LssLimp,                                  LssNone,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
