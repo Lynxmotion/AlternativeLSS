@@ -938,7 +938,28 @@ void process_broadcast_packet(LynxPacket p) {
   short n;
   short r = LssNoReply;
 
-  // todo:  loop through all steppers or motors and set
+  // loop through all steppers or motors and set
+  switch(config.io.motor_mode) {
+    case StepperMode:
+      r = StepperHandlers(p);
+      break;
+    case DualBrushedMode: {
+      LynxPacket p1(p); // need to copy packet in case a handler modifies it
+      r = DualBrushedHandlers(p1, brushed_motor_state[0], config.motor[0]);
+      if(r != LssNoHandler) {
+        // brushed motor 1 answered the call, so repeat the call to motor 2
+        DualBrushedHandlers(p, brushed_motor_state[1], config.motor[1]);
+      }
+    } break;
+    default:
+      // nothing
+      return;
+  }
+
+  // if we didnt match any handler then see if our command device handlers can
+  if (r == LssNoHandler) {
+    r = CommonDeviceHandlers(p);
+  }
 }
 
 /*
