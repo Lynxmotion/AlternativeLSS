@@ -355,19 +355,6 @@ LssPacketHandlers<> StepperHandlers
   },
 
   /*
-     Returns model string
-
-    Ex: #207QMS<cr>
-    Returns:  *207QMSLSS-2IO-LED
-  */
-  { LssModel | LssQuery,                          LssNone,
-    [](LynxPacket & p) {
-      transmit_model(p.id, "ST");
-      return LssNoReply;
-    }
-  },
-
-  /*
      Position in Degrees
 
 
@@ -556,18 +543,6 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
         return LssNoReply;
     }
   },
-  /*
-     Returns model string
-
-    Ex: #207QMS<cr>
-    Returns:  *207QMSLSS-2IO-LED
-  */
-  { LssModel | LssQuery,                          LssNone,
-    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
-      transmit_model(p.id, "DBR");
-      return LssNoReply;
-    }
-  },
 
   /*
    * Set H-Bridge driver to Slow or Fast Decay
@@ -719,6 +694,27 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
 */
 LssPacketHandlers<> CommonDeviceHandlers
 ({
+  /*
+     Returns model string
+
+    Ex: #207QMS<cr>
+    Returns:  *207QMSLSS-2IO-LED
+  */
+  { LssModel | LssQuery,                          LssNone,
+    [](LynxPacket & p) {
+      switch(config.io.motor_mode) {
+        case StepperMode:
+          transmit_model(p.id, "ST");
+          break;
+        case DualBrushedMode:
+          transmit_model(p.id, "DBR");
+          break;
+      }
+      return LssNoReply;
+    }
+  },
+
+  
   /*
      Change Device LSS Bus ID
 
