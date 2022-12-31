@@ -395,7 +395,7 @@ LssPacketHandlers<> StepperHandlers
    *    Change the direction of the servo.
    */
   { LssGyreDirection | LssQuery,
-    LssNoBroadcast | LssContinue,
+    LssNone,
     [](LynxPacket & p) {
       p.set(config.stepper.reverse ? -1 : 1);
       return LssReply;
@@ -642,7 +642,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
    *    Change the direction of the servo.
    */
   { LssGyreDirection | LssQuery,
-    LssNoBroadcast | LssContinue,
+    LssNone,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       p.set(cfg.reverse ? -1 : 1);
       return LssReply;
