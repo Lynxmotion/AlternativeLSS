@@ -938,13 +938,24 @@ void process_broadcast_packet(LynxPacket p) {
   switch(config.io.motor_mode) {
     case StepperMode:
       r = StepperHandlers(p);
+      p.id = config.io.id;
       break;
     case DualBrushedMode: {
       LynxPacket p1(p); // need to copy packet in case a handler modifies it
       r = DualBrushedHandlers(p1, brushed_motor_state[0], config.motor[0]);
       if(r != LssNoHandler) {
+        p1.id = config.io.id;
+
+        // print the reply from motor 1 if requested,
+        // motor 2 reply would get transmitted using the final
+        // catch before ending this function
+        if (r == LssReply && p1.id > 0) {
+          lss_transmit(p1.toString());
+        }
+
         // brushed motor 1 answered the call, so repeat the call to motor 2
-        DualBrushedHandlers(p, brushed_motor_state[1], config.motor[1]);
+        r = DualBrushedHandlers(p, brushed_motor_state[1], config.motor[1]);
+        p.id = config.io.id + 1;
       }
     } break;
     default:
@@ -955,7 +966,13 @@ void process_broadcast_packet(LynxPacket p) {
   // if we didnt match any handler then see if our command device handlers can
   if (r == LssNoHandler) {
     r = CommonDeviceHandlers(p);
+    p.id = config.io.id;
   }
+
+  // The handler may update the packet for reply transmission
+  // if so indicated, print the packet back to master
+  if (r == LssReply && p.id > 0)
+    lss_transmit(p.toString());
 }
 
 /*
