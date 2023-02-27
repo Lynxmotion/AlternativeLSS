@@ -503,6 +503,7 @@ LssPacketHandlers<> StepperHandlers
   { LssLimp | LssAction,               LssNone,
     [](LynxPacket & p) {
       motor_driver_limp();
+      stepper.setSpeed(0);
       return LssNoReply;
     }
   },
