@@ -511,7 +511,7 @@ LssPacketHandlers<> StepperHandlers
   /*
    * Flash writes
    */
-  { LssConfig,                         LssMatchAny,
+  { LssWheelMode | LssGyreDirection | LssConfig,      LssMatchAny,
     [](LynxPacket & p) {
       write_config_object(config.stepper);
       return LssNoReply;
