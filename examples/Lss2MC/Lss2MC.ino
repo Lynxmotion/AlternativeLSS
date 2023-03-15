@@ -373,16 +373,18 @@ LssPacketHandlers<> StepperHandlers
     servos position has reached 13.2 degrees.
 
   */
-  { LssWheelMode| LssDegrees | LssAction,           LssNone,
+  { LssWheelMode | LssDegrees | LssAction,           LssNone,
     [](LynxPacket & p) {
       motor_driver_enable();
       config.stepper.motion_mode = SpeedMode;
       stepper.setSpeed(p.value / 10.0);
-      return LssReply;
+      if(p.flash())
+        write_config_object(config.stepper);
+      return LssNoReply;
     }
   },
 
-  { LssWheelMode| LssDegrees | LssQuery,           LssNoBroadcast,
+  { LssWheelMode | LssDegrees | LssQuery,           LssNoBroadcast,
     [](LynxPacket & p) {
       if(config.stepper.motion_mode == SpeedMode)
         p.set(stepper.speed() * 10.0);
@@ -412,6 +414,8 @@ LssPacketHandlers<> StepperHandlers
         config.stepper.reverse = false;
       else
         return LssNoReply; // invalid input, dont response
+      if(p.flash())
+        write_config_object(config.stepper);
       return LssNoReply;
     }
   },
@@ -509,16 +513,6 @@ LssPacketHandlers<> StepperHandlers
       return LssNoReply;
     }
   },
-
-  /*
-   * Flash writes
-   */
-  { LssWheelMode | LssGyreDirection | LssConfig,      LssMatchAny,
-    [](LynxPacket & p) {
-      write_config_object(config.stepper);
-      return LssNoReply;
-    }
-  }
 });
 
 
