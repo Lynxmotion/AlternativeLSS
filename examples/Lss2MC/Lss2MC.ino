@@ -384,8 +384,10 @@ LssPacketHandlers<> StepperHandlers
 
   { LssWheelMode| LssDegrees | LssQuery,           LssNoBroadcast,
     [](LynxPacket & p) {
-      config.stepper.motion_mode = SpeedMode;
-      p.set(stepper.speed() * 10.0);
+      if(config.stepper.motion_mode == SpeedMode)
+        p.set(stepper.speed() * 10.0);
+      else
+        return LssError;
       return LssReply;
     }
   },
