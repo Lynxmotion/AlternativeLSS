@@ -645,7 +645,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       return LssReply;
     }
   },
-  { LssGyreDirection | LssAction,
+  { LssGyreDirection | LssAction | LssConfig,
     LssNone | LssContinue,
     [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
       if (p.value == -1)
@@ -654,32 +654,11 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
         cfg.reverse = false;
       else
         return LssNoReply; // invalid input, dont response
+      if(p.flash())
+        write_config_object(config.stepper);
       return LssNoReply;
     }
   },
-
-  { LssConfig,         LssMatchAny,
-    [](LynxPacket & p, LssBrushedMotorState& s, LssBrushedMotor& cfg) {
-      write_config_object(cfg);
-      return LssNoReply;
-    }
-  }
-
-#if 0
-  /*
-     Write to flash
-     This handler will write the device config to flash when the Config comamnd prefix is given. This handler runs after any of
-     the above handlers have already updated the config sctruct.
-     We specify LssMatchAny so the command will trigger on ANY of the command names instead of requiring ALL to match. So the
-     command list here specifies all commands that support setting the config option in non-volatile flash.
-  */
-  { LssAngularRange | LssConfig,           LssMatchAny,
-    [](LynxPacket & p, LssDevice & dev, unsigned short pin) {
-      write_config_object(dev);
-      return LssNoReply;
-    }
-  }
-#endif
 });
 
 
@@ -748,8 +727,10 @@ LssPacketHandlers<> CommonDeviceHandlers
   },
   { LssID | LssConfig,       LssNoBroadcast,
     [](LynxPacket & p) {
-      if (p.flash() && p.between(0, LssBroadcastAddress - 1))
-        config.io.id = p.value;   // only update object, flash handler will follow-up to write to flash
+      if (p.flash() && p.between(0, LssBroadcastAddress - 1)) {
+        config.io.id = p.value;
+        write_config_object(config.io);
+      }
       return LssNoReply;
     }
   },
@@ -838,7 +819,6 @@ LssPacketHandlers<> CommonDeviceHandlers
     }
   },
 
-
   { LssWheelMode | LssQuery,                         LssNone,
     [](LynxPacket & p) {
       if(config.io.motor_mode == StepperMode || config.io.motor_mode == DualBrushedMode)
@@ -864,20 +844,6 @@ LssPacketHandlers<> CommonDeviceHandlers
       write_config_object(config.io);
       // reset the device
       request_reset();
-      return LssReply;
-    }
-  },
-  
-  /*
-     Write to flash
-     This handler will write the device config to flash when the Config comamnd prefix is given. This handler runs after any of
-     the above handlers have already updated the config sctruct.
-     We specify LssMatchAny so the command will trigger on ANY of the command names instead of requiring ALL to match. So the
-     command list here specifies all commands that support setting the config option in non-volatile flash.
-  */
-  { LssID | LssGyreDirection | LssConfig,           LssMatchAny,
-    [](LynxPacket & p) {
-      write_config_object(config.io);
       return LssNoReply;
     }
   }
@@ -911,7 +877,7 @@ void process_packet(LynxPacket p) {
       return;
   }
   
-  // if we didnt match any handler then see if our command device handlers can
+  // if we didnt match any handler then see if our common device handlers can
   if (r == LssNoHandler) {
     r = CommonDeviceHandlers(p);
   }
