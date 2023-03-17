@@ -655,7 +655,7 @@ LssPacketHandlers<LssBrushedMotorState&, LssBrushedMotor&> DualBrushedHandlers
       else
         return LssNoReply; // invalid input, dont response
       if(p.flash())
-        write_config_object(config.stepper);
+        write_config_object(cfg);
       return LssNoReply;
     }
   },
