@@ -8,7 +8,7 @@
 #include <avr/wdt.h>
 
 // only define this if you are using the LSS2MC in Arduino mode (Not using the LSS bus) such as testing
-#define ARDUINO_DEV_MODE
+//#define ARDUINO_DEV_MODE
 
 const char EEPROM_CONFIG_VER = '2';   // update this number if eeprom config layout changes
 
