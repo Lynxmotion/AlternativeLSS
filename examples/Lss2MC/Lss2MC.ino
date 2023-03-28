@@ -375,9 +375,10 @@ LssPacketHandlers<> StepperHandlers
   */
   { LssWheelMode | LssDegrees | LssAction,           LssNone,
     [](LynxPacket & p) {
+      int8_t f = config.stepper.reverse ? -1 : 1;
       motor_driver_enable();
       config.stepper.motion_mode = SpeedMode;
-      stepper.setSpeed(p.value / 10.0);
+      stepper.setSpeed(p.value / 10.0 * f);
       if(p.flash())
         write_config_object(config.stepper);
       return LssNoReply;
@@ -386,9 +387,10 @@ LssPacketHandlers<> StepperHandlers
 
   { LssWheelMode | LssDegrees | LssQuery,           LssNoBroadcast,
     [](LynxPacket & p) {
-      if(config.stepper.motion_mode == SpeedMode)
-        p.set(stepper.speed() * 10.0);
-      else
+      if(config.stepper.motion_mode == SpeedMode) {
+        int8_t f = config.stepper.reverse ? -1 : 1;
+        p.set(stepper.speed() * 10.0 * f);
+      } else
         return LssError;
       return LssReply;
     }
