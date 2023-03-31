@@ -509,6 +509,7 @@ void LynxServo::update()
 #define DISPATCH(bit, member) if ((cmd & bit)>0) { LSS_LOGGING.print("  " #bit " "); LSS_LOGGING.print(pkt.value); LSS_LOGGING.print(" => " #member); member = pkt.value; mask.completed |= bit; }
 #else
 #define DISPATCH(bit, member) if ((cmd & bit)>0) { member = pkt.value; mask.completed |= bit; }
+#define DISPATCH_CAST(bit, member, type) if ((cmd & bit)>0) { member = (type)pkt.value; mask.completed |= bit; }
 #endif
 
 void LynxServo::dispatch(LynxPacket pkt)
@@ -563,7 +564,7 @@ void LynxServo::dispatch(LynxPacket pkt)
       DISPATCH(LssFirstPosition, config->firstPosition)
       else DISPATCH(LssGyreDirection, config->gyreDirection)
       else DISPATCH(LssBaudRate, config->baudrate)
-      else DISPATCH(LssLEDColor, config->ledColor)
+      else DISPATCH_CAST(LssLEDColor, config->ledColor, LssColors)
       else DISPATCH(LssAngularStiffness, config->angularStiffness)
       else DISPATCH(LssMaxSpeed, config->maxSpeed)
       else DISPATCH(LssAngularRange, config->angularRange)

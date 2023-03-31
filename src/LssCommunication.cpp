@@ -41,12 +41,13 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'T': ACCEPT(LssDefault);
       }}}}}
     }
-    case 'A': SWITCH(LssInvalid) {
+    case 'A': SWITCH(LssAnalog) {
       case 'R': ACCEPT(LssAngularRange);
       case 'S': ACCEPT(LssAngularStiffness);
     }
     case 'M': SWITCH(LssInvalid) {
       case 'D': ACCEPT(LssMove|LssDegrees);
+      case 'M': ACCEPT(LssWheelMode);
     }
     case 'W': SWITCH(LssInvalid) {
       case 'D': ACCEPT(LssWheelMode|LssDegrees);
@@ -67,6 +68,7 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       }
       case 'M': SWITCH(LssInvalid) {
         case 'S': ACCEPT(LssQuery|LssModel);
+        case 'M': ACCEPT(LssQuery|LssWheelMode);
 	  }
       case 'P': ACCEPT(LssQuery|LssPosition|LssPulse);
       case 'D': SWITCH(LssQuery|LssPosition|LssDegrees) {
@@ -75,6 +77,11 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
       case 'W': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssQuery|LssWheelMode|LssDegrees);
         case 'R': ACCEPT(LssQuery|LssWheelMode|LssRPM);
+      }
+      case 'R': SWITCH(LssInvalid) {
+        case 'D': SWITCH(LssInvalid) {
+          case 'M': ACCEPT(LssQuery|LssSpeed|LssPulse);
+        }
       }
       case 'S': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssQuery|LssMaxSpeed|LssDegrees);
@@ -98,7 +105,9 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
     }
 
     case 'R': SWITCH(LssInvalid) {
-      case 'S': ACCEPT(LssReset);
+      case 'D': SWITCH(LssInvalid) {
+        case 'M': ACCEPT(LssSpeed|LssPulse);
+      }
       case 'E': SWITCH(LssInvalid) {
       case 'S': SWITCH(LssInvalid) {
       case 'E': SWITCH(LssInvalid) {
@@ -127,6 +136,9 @@ LssCommands LynxPacket::parseCommand(const char*& pkt)
         case 'E': SWITCH(LssInvalid) {
           case 'D': ACCEPT(LssConfig|LssLEDColor);
         }
+      }
+      case 'M': SWITCH(LssInvalid) {
+        case 'M': ACCEPT(LssConfig|LssWheelMode);
       }
       case 'I': SWITCH(LssInvalid) {
         case 'D': ACCEPT(LssConfig|LssID);
@@ -175,13 +187,25 @@ char* LynxPacket::commandCode(LssCommands cmd, char* out)
           *pout++ = 'D';
           *pout++ = 'T';
           break;
+        case LssSpeed:
+          if(unit == LssPulse) {
+            *pout++ = 'R';
+            *pout++ = 'D';
+            *pout++ = 'M';
+          }
+          break;
         case LssFirstPosition:
           *pout++ = 'F';
           *pout++ = (unit == LssPulse) ? 'P' : 'D';
           break;
         case LssWheelMode:
-          *pout++ = 'W';
-          *pout++ = (unit == LssRPM) ? 'R' : 'D';
+		  if(unit == 0) {
+            *pout++ = 'M';
+            *pout++ = 'M';
+		  } else {
+            *pout++ = 'W';
+            *pout++ = (unit == LssRPM) ? 'R' : 'D';
+		  }
           break;
         case LssMaxSpeed:
           *pout++ = 'S';

@@ -7,6 +7,7 @@
 const short LssNone = 0;
 const short LssNoBroadcast = 1;
 const short LssMatchAny = 2;
+const short LssContinue = 4;
 
 const short LssReply = 1;
 const short LssNoReply = 0;
@@ -78,15 +79,16 @@ class LssPacketHandlers
     }
 
     // returns true if a packet is handled by the given callback handler
-    inline static bool matches(const LynxPacket& p, Handler h) { 
+    inline static bool matches(const LynxPacket& p, const Handler& h) { 
       //return (match & rhs.match)==match && (!broadcast || rhs.broadcast); 
+	  LssCommands hcmd = h.command & (LssCommandSet|LssUnits);
       LssCommands cmd = p.command & (LssCommandSet|LssUnits);
       LssCommands mode = p.command & LssCommandModes;
       if((mode & LssCommandModes) ==0)
         mode |= LssAction;    // todo: move this to the main handler so we only do it once
       bool command_match = (h.flags & LssMatchAny)
-          ? (h.command & cmd)           // match ANY of the command bits
-          : ((h.command & cmd)==cmd);   // match ALL of the command bits
+          ? (hcmd & cmd)                 // match ANY of the command bits
+          : (hcmd == cmd);   // match ALL of the command bits
       return command_match && (h.command & mode)>0 && (!p.broadcast() || (h.flags & LssNoBroadcast)==0);
     }
 
@@ -94,9 +96,10 @@ class LssPacketHandlers
     short operator()(LynxPacket& p, Args ... args) const {
       short r = LssNoHandler;
       for(size_t i=0; i < _count; i++) {
-        if(matches(p, _handlers[i])) {
-          r =  _handlers[i].handler(p, args...);
-          if(r==LssError)
+	    const Handler& handler = _handlers[i];
+        if(matches(p, handler)) {
+          r =  handler.handler(p, args...);
+          if(r==LssError || (handler.flags & LssContinue)==0)
             return r;
         }
       }
